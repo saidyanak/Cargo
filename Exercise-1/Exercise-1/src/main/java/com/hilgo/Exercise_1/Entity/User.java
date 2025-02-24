@@ -36,7 +36,7 @@ public class User implements UserDetails{
 	private Long Id;
 	
 	@Column
-	private String userName;
+	private String username;
 	
 	@Column
 	private String mail;
@@ -65,7 +65,7 @@ public class User implements UserDetails{
 	@Override
 	public String getUsername() {
 		// TODO Auto-generated method stub
-		return userName;
+		return username;
 	}
 	 
 }
