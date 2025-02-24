@@ -10,8 +10,12 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
+@Getter
+@Setter
 public class Cargo {
 	
 	@Id
@@ -38,6 +42,9 @@ public class Cargo {
 	
 	@Column
 	private Integer verificationCode;
+	
+	@Column
+	private String description;
 	
 	@ManyToOne
 	@JoinColumn(name = "distributor_id")
