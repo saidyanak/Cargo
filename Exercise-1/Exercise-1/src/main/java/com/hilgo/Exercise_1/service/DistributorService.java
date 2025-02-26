@@ -1,6 +1,9 @@
 package com.hilgo.Exercise_1.service;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -8,12 +11,15 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import com.hilgo.Exercise_1.Entity.Cargo;
+import com.hilgo.Exercise_1.Entity.CargoStatus;
 import com.hilgo.Exercise_1.Entity.Distributor;
 import com.hilgo.Exercise_1.Entity.User;
 import com.hilgo.Exercise_1.repo.CargoRepository;
 import com.hilgo.Exercise_1.repo.DistributorRepository;
 import com.hilgo.Exercise_1.repo.UserRepository;
+import com.hilgo.Exercise_1.request.CargoRequest;
 import com.hilgo.Exercise_1.request.DistributorRequest;
+import com.hilgo.Exercise_1.responses.CargoResponse;
 import com.hilgo.Exercise_1.responses.CargoesResponse;
 import com.hilgo.Exercise_1.responses.DistributorResponse;
 
@@ -36,7 +42,11 @@ public class DistributorService {
 		Distributor distributor = distOptional.get();
 		
 		Page<Cargo> cargoesPage = cargoesRepo.findByDistributorId(distributor.getId(), pageable);
-		Page<CargoesResponse> cargoResponse = cargoesPage.map(cargo -> new CargoesResponse(cargo.getCargoId(),cargo.getDescription(),cargo.getCargoSituation(), cargo.getPhoneNumber()));
+		Page<CargoesResponse> cargoResponse = cargoesPage.map(cargo -> new CargoesResponse(
+				cargo.getCargoId(),
+				cargo.getDescription(),
+				cargo.getCargoSituation(), 
+				cargo.getPhoneNumber()));
 		return cargoResponse;
 	}
 
@@ -47,7 +57,7 @@ public class DistributorService {
 			throw new RuntimeException("Username is already exist.");
 		}
 		
-		if (!distOpt.get().getMail().equals(distributorRequest.getMail()) && userRepository.existsByEmail(distributorRequest.getMail())) {
+		if (!distOpt.get().getMail().equals(distributorRequest.getMail()) && userRepository.existsByMail(distributorRequest.getMail())) {
 			throw new RuntimeException("Mail is already exist.");
 		}
 		
@@ -77,7 +87,7 @@ public class DistributorService {
 		String username = SecurityContextHolder.getContext().getAuthentication().getName();
 		Optional<User> optUser = userRepository.findByUsername(username);
 		if (optUser.isEmpty()) {
-			throw new RuntimeException("User is not exist.");
+			throw new RuntimeException("User does not exist.");
 		}
 		User user = optUser.get();
 		userRepository.delete(user);
@@ -85,6 +95,34 @@ public class DistributorService {
 		return true;
 	}
 
-	
-	
+	public List<CargoResponse> addCargo(CargoRequest cargoRequest) {
+		String username = SecurityContextHolder.getContext().getAuthentication().getName();
+		Optional<Distributor> distOpt = distributorRepository.findByUsername(username);
+		if (distOpt.isEmpty()) {
+			throw new RuntimeException("User does not exist.");
+		}
+		Distributor dist = distOpt.get();
+		
+		Cargo cargo = new Cargo();
+		cargo.setDescription(cargoRequest.getDescription());
+		cargo.setSizes(cargoRequest.getSizes());
+		cargo.setSelfLocation(cargoRequest.getSelfLocation());
+		cargo.setTargetLocation(cargoRequest.getTargetLocation());
+		cargo.setWeight(cargoRequest.getWeight());
+		cargo.setPhoneNumber(cargoRequest.getPhoneNumber());
+		cargo.setCargoStatus(CargoStatus.CREATED);
+		cargo.setDistributor(dist);
+		
+		cargoesRepo.save(cargo);
+		
+		
+		return Stream.of(cargo).map(c -> new CargoResponse(
+				c.getDescription(),
+				c.getSelfLocation(),
+				c.getTargetLocation(),
+				c.getWeight(),
+				c.getSizes(),
+				dist.getPhoneNumber()
+				)).collect(Collectors.toList());
+	}
 }

@@ -7,5 +7,5 @@ import com.hilgo.Exercise_1.Entity.Cargo;
 
 public interface CargoRepository extends JpaRepository<Cargo, Long>{
 	Page<Cargo> findByDistributorId(Long distributorId, org.springframework.data.domain.Pageable pageable);
-	 
+	Page<Cargo> findByDriverId(Long driverId, org.springframework.data.domain.Pageable pageable);
 }

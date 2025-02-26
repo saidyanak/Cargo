@@ -5,6 +5,7 @@ import java.util.List;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -26,4 +27,7 @@ public class Distributor extends User{
 
 	@OneToMany(mappedBy = "distributor")
 	private List<Cargo> cargo;
+	
+	@OneToOne(mappedBy = "distributor")
+	private ShipmentsSent shipmentsSent;
 }

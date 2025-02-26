@@ -18,6 +18,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @NoArgsConstructor
 public class CargoesResponse {
+	
 	long cargoId;
 	String description;
 	CargoSituation cargoSituation;
