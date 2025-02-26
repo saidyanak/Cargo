@@ -15,9 +15,12 @@ import com.hilgo.Exercise_1.Entity.Driver;
 import com.hilgo.Exercise_1.Entity.ShipmentsSent;
 import com.hilgo.Exercise_1.Entity.User;
 import com.hilgo.Exercise_1.repo.CargoRepository;
+import com.hilgo.Exercise_1.repo.DriverRepository;
 import com.hilgo.Exercise_1.repo.ShipmentsSentRepository;
 import com.hilgo.Exercise_1.repo.UserRepository;
+import com.hilgo.Exercise_1.request.DriverRequest;
 import com.hilgo.Exercise_1.responses.CargoesResponse;
+import com.hilgo.Exercise_1.responses.DriverResponse;
 
 import lombok.RequiredArgsConstructor;
 
@@ -28,6 +31,7 @@ public class DriverService {
 	final private UserRepository userRepository;
 	final private CargoRepository cargoRepository;
 	final private ShipmentsSentRepository shipmentsSentRepository;
+	final private DriverRepository driverRepo;
 	
 	
 	public boolean takeCargo(Long cargoId) {
@@ -112,6 +116,50 @@ public class DriverService {
 		return cargoResponse;
 	}
 	
+	public DriverResponse updateDriver(DriverRequest driverRequest) {
+		String username = SecurityContextHolder.getContext().getAuthentication().getName();
+		Optional<User> driverOpt = userRepository.findByUsername(username);
+		if (driverOpt.isEmpty()) {
+		    throw new RuntimeException("User Not Found");
+		}
+		if (!driverOpt.get().getUsername().equals(driverRequest.getUserName()) && userRepository.existsByUsername(driverRequest.getUserName())) {
+			throw new RuntimeException("Username is already exist!");
+		}
+		if (!driverOpt.get().getMail().equals(driverRequest.getMail()) && userRepository.existsByMail(driverRequest.getMail())) {
+			throw new RuntimeException("Mail is already exist!");
+		}
+		if (driverOpt.isPresent()) {
+			User driver = driverOpt.get();
+			((Driver)driver).setMail(driverRequest.getMail());
+			((Driver)driver).setPhoneNumber(driverRequest.getPhoneNumber());
+			((Driver)driver).setUsername(driverRequest.getUserName());
+			((Driver)driver).setCarTypes(driverRequest.getCarTypes());
+			driver.setId(driverOpt.get().getId());
+			driver.setUsername(driverOpt.get().getUsername());
+			userRepository.save(driver);
+			
+			return DriverResponse.builder()
+					.Tc(((Driver)driver).getTc())
+					.carTypes(((Driver)driver).getCarTypes())
+					.phoneNumber(((Driver)driver).getPhoneNumber())
+					.mail(driver.getMail())
+					.build();
+		}
+		else {
+			throw new RuntimeException("User Not Found");
+		}
+	}
 	
+	public Page<CargoesResponse> getAllCargoes(Pageable pageable) {
+		String username = SecurityContextHolder.getContext().getAuthentication().getName();
+		Long id = userRepository.findByUsername(username).get().getId();
+		Optional<Driver> driverOpt = driverRepo.findById(id);
+		if (driverOpt.isEmpty()) {
+			throw new RuntimeException("User Not Found");
+		}
+		Page<Cargo> cargoes = cargoRepository.findAll(pageable);
+		Page<CargoesResponse> cargoResponse = cargoes.map(cargo -> new CargoesResponse(cargo.getCargoId(),cargo.getDescription(),cargo.getCargoSituation(), cargo.getPhoneNumber()));
+		return cargoResponse;
+	}
 
 }
