@@ -1,6 +1,6 @@
 package com.hilgo.cargo.request;
 
-import com.hilgo.cargo.entity.Roles;
+import com.hilgo.cargo.entity.enums.Roles;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

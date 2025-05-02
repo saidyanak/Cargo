@@ -1,7 +1,7 @@
 package com.hilgo.cargo.response;
 
 
-import com.hilgo.cargo.entity.Roles;
+import com.hilgo.cargo.entity.enums.Roles;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

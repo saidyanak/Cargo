@@ -31,41 +31,36 @@ public class RegisterLoginService {
 	private final JavaMailSender mailSender;
 
 	public RegisterResponse register(RegisterRequest request) {
-	    // Aynı e-posta ile kayıt kontrolü
-	    Optional<User> existingUserByEmail = userRepository.findByMail(request.getMail());
-	    if (existingUserByEmail.isPresent()) {
-	        throw new RuntimeException("Bu e-posta adresi ile kayıtlı bir kullanıcı zaten var.");
-	    }
 
-	    // Aynı kullanıcı adı ile kayıt kontrolü
-	    Optional<User> existingUserByUsername = userRepository.findByUsername(request.getUserName());
-	    if (existingUserByUsername.isPresent()) {
-	        throw new RuntimeException("Bu kullanıcı adı ile kayıtlı bir kullanıcı zaten var.");
-	    }
+		Optional<User> existingUserByEmail = userRepository.findByMail(request.getMail());
+		if (existingUserByEmail.isPresent()) {
+			throw new RuntimeException("Bu e-posta adresi ile kayıtlı bir kullanıcı zaten var.");
+		}
 
-	    // Aynı telefon numarası ile kayıt kontrolü
-	    Optional<User> existingUserByPhoneNumber = userRepository.findByPhoneNumber(request.getPhoneNumber());
-	    if (existingUserByPhoneNumber.isPresent()) {
-	        throw new RuntimeException("Bu telefon numarası ile kayıtlı bir kullanıcı zaten var.");
-	    }
+		Optional<User> existingUserByUsername = userRepository.findByUsername(request.getUserName());
+		if (existingUserByUsername.isPresent()) {
+			throw new RuntimeException("Bu kullanıcı adı ile kayıtlı bir kullanıcı zaten var.");
+		}
 
-	    // Yeni kullanıcı oluşturma
-	    User user = new User();
-	    user.setMail(request.getMail());
-	    user.setUsername(request.getUserName());
-	    user.setPassword(passwordEncoder.encode(request.getPassword()));
-	    user.setPhoneNumber(request.getPhoneNumber());
-	    user.setRoles(request.getRole());
+		Optional<User> existingUserByPhoneNumber = userRepository.findByPhoneNumber(request.getPhoneNumber());
+		if (existingUserByPhoneNumber.isPresent()) {
+			throw new RuntimeException("Bu telefon numarası ile kayıtlı bir kullanıcı zaten var.");
+		}
 
-	    userRepository.save(user);
+		User user = new User();
+		user.setMail(request.getMail());
+		user.setUsername(request.getUserName());
+		user.setPassword(passwordEncoder.encode(request.getPassword()));
+		user.setPhoneNumber(request.getPhoneNumber());
+		user.setRoles(request.getRole());
 
-	    // JWT Token oluştur
-	    String jwtToken = jwtService.generateToken(user);
+		userRepository.save(user);
 
-	    // Kullanıcıya e-posta gönder
-	    sendWelcomeEmail(user.getMail(), user.getUsername());
+		String jwtToken = jwtService.generateToken(user);
 
-	    return new RegisterResponse(jwtToken, new UserResponse(user.getUsername(), user.getMail(), user.getRoles()));
+		sendWelcomeEmail(user.getMail(), user.getUsername());
+
+		return new RegisterResponse(jwtToken, new UserResponse(user.getUsername(), user.getMail(), user.getRoles()));
 	}
 
 	public RegisterResponse auth(LoginRequest request) {
@@ -76,8 +71,7 @@ public class RegisterLoginService {
 			throw new RuntimeException("Kullanıcı adı veya şifre hatalı.");
 		}
 
-		User user = userRepository.findByUsername(request.getUserName())
-				.orElseThrow(() -> new RuntimeException("Kullanıcı bulunamadı: " + request.getUserName()));
+		User user = userRepository.findByUsername(request.getUserName()).get();
 
 		String jwtToken = jwtService.generateToken(user);
 		return new RegisterResponse(jwtToken, new UserResponse(user.getUsername(), user.getMail(), user.getRoles()));
@@ -85,33 +79,29 @@ public class RegisterLoginService {
 	}
 
 	private void sendWelcomeEmail(String to, String username) {
-	    MimeMessage mimeMessage = mailSender.createMimeMessage();
+		MimeMessage mimeMessage = mailSender.createMimeMessage();
 
-	    try {
-	        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+		try {
+			MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
 
-	        helper.setTo(to);
-	        helper.setSubject("🎉 Kayıt Başarılı! Hoş Geldiniz, " + username);
+			helper.setTo(to);
+			helper.setSubject("🎉 Kayıt Başarılı! Hoş Geldiniz, " + username);
 
-	        String htmlContent = "<!DOCTYPE html>" +
-	                "<html>" +
-	                "<body style='font-family: Arial, sans-serif; padding: 20px; background-color: #f9f9f9;'>" +
-	                "<div style='background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px #ccc;'>" +
-	                "<h2 style='color: #2c3e50;'>Hoş Geldiniz, <strong>" + username + "</strong> 👋</h2>" +
-	                "<p>Sisteme başarılı bir şekilde kayıt oldunuz. Artık tüm hizmetlerimizi kullanmaya başlayabilirsiniz!</p>" +
-	                "<p style='color: #27ae60;'><strong>Teşekkür ederiz,</strong></p>" +
-	                "<p><i>Hilgo Yazılım</i></p>" +
-	                "<img src='https://cdn-icons-png.flaticon.com/512/190/190411.png' alt='Success Icon' style='width: 100px; margin-top: 20px;'/>" +
-	                "</div>" +
-	                "</body>" +
-	                "</html>";
+			String htmlContent = "<!DOCTYPE html>" + "<html>"
+					+ "<body style='font-family: Arial, sans-serif; padding: 20px; background-color: #f9f9f9;'>"
+					+ "<div style='background-color: #ffffff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px #ccc;'>"
+					+ "<h2 style='color: #2c3e50;'>Hoş Geldiniz, <strong>" + username + "</strong> 👋</h2>"
+					+ "<p>Sisteme başarılı bir şekilde kayıt oldunuz. Artık tüm hizmetlerimizi kullanmaya başlayabilirsiniz!</p>"
+					+ "<p style='color: #27ae60;'><strong>Teşekkür ederiz,</strong></p>" + "<p><i>Hilgo Yazılım</i></p>"
+					+ "<img src='https://cdn-icons-png.flaticon.com/512/190/190411.png' alt='Success Icon' style='width: 100px; margin-top: 20px;'/>"
+					+ "</div>" + "</body>" + "</html>";
 
-	        helper.setText(htmlContent, true); // true = HTML içeriği destekle
-	        mailSender.send(mimeMessage);
+			helper.setText(htmlContent, true); // true = HTML içeriği destekle
+			mailSender.send(mimeMessage);
 
-	    } catch (MessagingException e) {
-	        throw new RuntimeException("Mail gönderilirken hata oluştu", e);
-	    }
+		} catch (MessagingException e) {
+			throw new RuntimeException("Mail gönderilirken hata oluştu", e);
+		}
 	}
 
 }
