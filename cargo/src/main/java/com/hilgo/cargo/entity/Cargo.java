@@ -1,5 +1,7 @@
 package com.hilgo.cargo.entity;
 
+import java.time.LocalDateTime;
+
 import com.hilgo.cargo.entity.enums.CargoSituation;
 
 import jakarta.persistence.Column;
@@ -43,8 +45,14 @@ public class Cargo {
 	private String phoneNumber;
 
 	@Column
-	private Long verificationCode;
+	private String verificationCode;
+	
+	@Column
+	private  LocalDateTime takeingTime;
 
+	@Column
+	private  LocalDateTime deliveredTime;
+	
 	@ManyToOne
 	private Distributor distributor;
 	
