@@ -54,6 +54,7 @@ public class User implements UserDetails{
 	@Column
 	private String phoneNumber;
 	
+<<<<<<< HEAD
 	@Enumerated(EnumType.STRING)
 	private Roles roles;
 
@@ -69,16 +70,38 @@ public class User implements UserDetails{
 	
 	@Override
 	public Collection<? extends GrantedAuthority> getAuthorities() {
+=======
+	@Column
+	private String verificationCode;
+	
+	@Column
+	private LocalDateTime verificationCodeExpiresAt;
+	
+	@Column
+	private Boolean enable;
+	
+	@Enumerated(EnumType.STRING)
+	private Roles roles;
+
+	@Override
+	public Collection<? extends GrantedAuthority> getAuthorities() {
+		// TODO Auto-generated method stub
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 		return List.of(new SimpleGrantedAuthority("ROLE_" + roles.name()));
 	}
 
 	@Override
 	public String getPassword() {
+<<<<<<< HEAD
+=======
+		// TODO Auto-generated method stub
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 		return password;
 	}
 
 	@Override
 	public String getUsername() {
+<<<<<<< HEAD
 		return username;
 	}
 	
@@ -94,5 +117,10 @@ public class User implements UserDetails{
 	    public boolean isEnabled() {
 	        return enable;
 	    }
+=======
+		// TODO Auto-generated method stub
+		return username;
+	}
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 	 
 }

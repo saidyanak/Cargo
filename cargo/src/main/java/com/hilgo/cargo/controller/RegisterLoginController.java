@@ -3,6 +3,7 @@ package com.hilgo.cargo.controller;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
+<<<<<<< HEAD
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,6 +16,14 @@ import com.hilgo.cargo.response.LoginResponse;
 import com.hilgo.cargo.response.RegisterResponse;
 import com.hilgo.cargo.service.RegisterLoginService;
 import com.hilgo.cargo.request.SetPasswordRequest;
+=======
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+import com.hilgo.cargo.request.RegisterRequest;
+import com.hilgo.cargo.response.RegisterResponse;
+import com.hilgo.cargo.service.RegisterLoginService;
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,12 +33,15 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/auth")
 public class RegisterLoginController {
 	
+<<<<<<< HEAD
 	
 	
 	
 	
 	
 	
+=======
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 	private final RegisterLoginService registerLoginService;
 	
 	@PostMapping(path = "/register")
@@ -38,6 +50,7 @@ public class RegisterLoginController {
 		return ResponseEntity.ok(registerLoginService.register(registerRequest));
 	}
 	
+<<<<<<< HEAD
 	@PostMapping(path = "/verify")
 	public ResponseEntity<?> verifyUser(@RequestBody VerifyUserRequest verifyUserRequest) {
 		try {
@@ -68,4 +81,6 @@ public class RegisterLoginController {
 	public ResponseEntity<?> setPassword(@RequestParam String email, @RequestBody SetPasswordRequest setPasswordRequest){
 		return ResponseEntity.ok(registerLoginService.setPassword(email, setPasswordRequest));
 	}
+=======
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 }

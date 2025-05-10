@@ -6,20 +6,29 @@ import java.util.Random;
 
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+<<<<<<< HEAD
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+=======
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.hilgo.cargo.entity.Distributor;
 import com.hilgo.cargo.entity.Driver;
 import com.hilgo.cargo.entity.User;
+<<<<<<< HEAD
 import com.hilgo.cargo.repository.UserRepository;
 import com.hilgo.cargo.request.LoginRequest;
 import com.hilgo.cargo.request.RegisterRequest;
 import com.hilgo.cargo.request.SetPasswordRequest;
 import com.hilgo.cargo.request.VerifyUserRequest;
 import com.hilgo.cargo.response.LoginResponse;
+=======
+import com.hilgo.cargo.repository.DriverRepository;
+import com.hilgo.cargo.repository.UserRepository;
+import com.hilgo.cargo.request.RegisterRequest;
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 import com.hilgo.cargo.response.RegisterResponse;
 import com.hilgo.cargo.response.UserResponse;
 
@@ -33,11 +42,24 @@ public class RegisterLoginService {
 
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
+<<<<<<< HEAD
 	private final AuthenticationManager authenticationManager;
 	private final JavaMailSender mailSender;
 	private final JwtService jwtService;
 	
 
+=======
+	//private final JwtService jwtService;
+	//private final AuthenticationManager authenticationManager;
+	private final DriverRepository diDriverRepository;
+	private final JavaMailSender mailSender;
+
+	private String generateVerificationCode() {
+		Random random = new Random();
+		int code = random.nextInt(900000) + 100000;
+		return String.valueOf(code);
+	}
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 	
 	public RegisterResponse register(RegisterRequest request) {
 
@@ -47,7 +69,11 @@ public class RegisterLoginService {
 			throw new RuntimeException("Bu e-posta adresi ile kayıtlı bir kullanıcı zaten var.");
 		}
 
+<<<<<<< HEAD
 		Optional<User> existingUserByUsername = userRepository.findByUsername(request.getUsername());
+=======
+		Optional<User> existingUserByUsername = userRepository.findByUsername(request.getUserName());
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 		if (existingUserByUsername.isPresent()) {
 			throw new RuntimeException("Bu kullanıcı adı ile kayıtlı bir kullanıcı zaten var.");
 		}
@@ -65,23 +91,35 @@ public class RegisterLoginService {
 		}
 		
 		user.setMail(request.getMail());
+<<<<<<< HEAD
 		user.setUsername(request.getUsername());
+=======
+		user.setUsername(request.getUserName());
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 		user.setPassword(passwordEncoder.encode(request.getPassword()));
 		user.setPhoneNumber(request.getPhoneNumber());
 		user.setRoles(request.getRole());
 		user.setVerificationCode(generateVerificationCode());
+<<<<<<< HEAD
 		user.setVerificationCodeExpiresAt(LocalDateTime.now().plusHours(2));
+=======
+		user.setVerificationCodeExpiresAt(LocalDateTime.now().plusDays(2));
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 		user.setEnable(false);
 		
 		userRepository.save(user);
 		
 		sendVerificationCode(user);
 
+<<<<<<< HEAD
 		return new RegisterResponse(
 				new UserResponse(
 						user.getUsername(),
 						user.getMail(),
 						user.getRoles()));
+=======
+		return new RegisterResponse(new UserResponse(user.getUsername(), user.getMail(), user.getRoles()));
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 	}
 
 	private void sendVerificationCode(User user) {
@@ -109,6 +147,7 @@ public class RegisterLoginService {
 			throw new RuntimeException("Mail gönderilirken hata oluştu", e);
 		}
 	}
+<<<<<<< HEAD
 	
 	private void sendVerificationEmail(User user, String passwordCode) {
 		MimeMessage mimeMessage = mailSender.createMimeMessage();
@@ -224,5 +263,7 @@ public class RegisterLoginService {
 
 	}
 
+=======
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 
 }

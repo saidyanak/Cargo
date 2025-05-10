@@ -30,10 +30,17 @@ public class Cargo {
 	private Long id;
 
 	@OneToOne
+<<<<<<< HEAD
 	private Location selfLocation;
 
 	@OneToOne
 	private Location targetLocation;
+=======
+	private Location selflocation;
+
+	@OneToOne
+	private Location targetlocation;
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 
 	@OneToOne
 	private Measure measure;
@@ -48,14 +55,21 @@ public class Cargo {
 	private String verificationCode;
 	
 	@Column
+<<<<<<< HEAD
 	private  LocalDateTime takingTime;
+=======
+	private  LocalDateTime takeingTime;
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 
 	@Column
 	private  LocalDateTime deliveredTime;
 	
+<<<<<<< HEAD
 	@Column
 	private  String description;
 	
+=======
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 	@ManyToOne
 	private Distributor distributor;
 	

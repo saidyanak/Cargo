@@ -28,7 +28,11 @@ public class SecurityConfiguration{
             .cors()
             .and()
             .authorizeHttpRequests()
+<<<<<<< HEAD
             .requestMatchers("/auth/change","/auth/forgot", "/auth/setPassword").hasAnyAuthority("ROLE_DRIVER", "ROLE_DISTRIBUTOR")
+=======
+            .requestMatchers("/auth/changePassword").hasAnyAuthority("ROLE_DRIVER", "ROLE_DISTRIBUTOR")
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
             .requestMatchers("/auth/**",
             		"/v2/api-docs",
             		"/v3/api-docs",
