@@ -1,5 +1,6 @@
 package com.hilgo.cargo.entity;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -52,6 +53,15 @@ public class User implements UserDetails{
 	
 	@Column
 	private String phoneNumber;
+	
+	@Column
+	private String verificationCode;
+	
+	@Column
+	private LocalDateTime verificationCodeExpiresAt;
+	
+	@Column
+	private Boolean enable;
 	
 	@Enumerated(EnumType.STRING)
 	private Roles roles;

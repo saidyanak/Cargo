@@ -6,10 +6,13 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class RegisterResponse {
-	private UserResponse userResponse;
-}
+@Builder
+public class ResponseLocation {
 
+    private Double latitude;
+    
+    private Double longitude;
+
+}

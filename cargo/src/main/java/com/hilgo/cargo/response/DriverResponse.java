@@ -1,4 +1,4 @@
-package com.hilgo.cargo.repository;
+package com.hilgo.cargo.response;
 
 import com.hilgo.cargo.entity.enums.CarType;
 
