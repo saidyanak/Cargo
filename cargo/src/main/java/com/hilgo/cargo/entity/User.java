@@ -54,6 +54,23 @@ public class User implements UserDetails{
 	@Column
 	private String phoneNumber;
 	
+<<<<<<< HEAD
+	@Enumerated(EnumType.STRING)
+	private Roles roles;
+
+	private boolean enable;
+    
+    private String verificationCode;
+    
+    private String verificationExpiration; 
+    
+    private LocalDateTime verificationCodeExpiresAt;
+    
+
+	
+	@Override
+	public Collection<? extends GrantedAuthority> getAuthorities() {
+=======
 	@Column
 	private String verificationCode;
 	
@@ -69,19 +86,41 @@ public class User implements UserDetails{
 	@Override
 	public Collection<? extends GrantedAuthority> getAuthorities() {
 		// TODO Auto-generated method stub
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 		return List.of(new SimpleGrantedAuthority("ROLE_" + roles.name()));
 	}
 
 	@Override
 	public String getPassword() {
+<<<<<<< HEAD
+=======
 		// TODO Auto-generated method stub
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 		return password;
 	}
 
 	@Override
 	public String getUsername() {
+<<<<<<< HEAD
+		return username;
+	}
+	
+	 public String getEmail() {
+	        return mail;
+	    }
+
+	 public void setEmail(String mail) {
+       this.mail = mail;
+	 	}
+	 
+	 @Override
+	    public boolean isEnabled() {
+	        return enable;
+	    }
+=======
 		// TODO Auto-generated method stub
 		return username;
 	}
+>>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 	 
 }
