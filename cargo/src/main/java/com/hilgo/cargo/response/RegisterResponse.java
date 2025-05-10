@@ -10,11 +10,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class RegisterResponse {
-<<<<<<< HEAD
-	
-
-=======
->>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 	private UserResponse userResponse;
 }
 

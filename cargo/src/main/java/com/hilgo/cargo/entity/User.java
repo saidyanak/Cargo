@@ -20,9 +20,9 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import lombok.AllArgsConstructor;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.Getter;
 
 @Getter
 @Setter
@@ -54,54 +54,34 @@ public class User implements UserDetails{
 	@Column
 	private String phoneNumber;
 	
-<<<<<<< HEAD
 	@Enumerated(EnumType.STRING)
 	private Roles roles;
 
-	private boolean enable;
     
+	@Column
     private String verificationCode;
     
+	@Column
     private String verificationExpiration; 
-    
+	
+	@Column
     private LocalDateTime verificationCodeExpiresAt;
-    
-
+	
+	@Column
+	private boolean enable;
 	
 	@Override
 	public Collection<? extends GrantedAuthority> getAuthorities() {
-=======
-	@Column
-	private String verificationCode;
-	
-	@Column
-	private LocalDateTime verificationCodeExpiresAt;
-	
-	@Column
-	private Boolean enable;
-	
-	@Enumerated(EnumType.STRING)
-	private Roles roles;
-
-	@Override
-	public Collection<? extends GrantedAuthority> getAuthorities() {
-		// TODO Auto-generated method stub
->>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 		return List.of(new SimpleGrantedAuthority("ROLE_" + roles.name()));
 	}
 
 	@Override
 	public String getPassword() {
-<<<<<<< HEAD
-=======
-		// TODO Auto-generated method stub
->>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 		return password;
 	}
 
 	@Override
 	public String getUsername() {
-<<<<<<< HEAD
 		return username;
 	}
 	
@@ -114,13 +94,7 @@ public class User implements UserDetails{
 	 	}
 	 
 	 @Override
-	    public boolean isEnabled() {
-	        return enable;
-	    }
-=======
-		// TODO Auto-generated method stub
-		return username;
+	public boolean isEnabled() {
+	    return enable;
 	}
->>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
-	 
 }

@@ -1,8 +1,5 @@
 package com.hilgo.cargo.controller;
 
-<<<<<<< HEAD
-import org.springframework.http.ResponseEntity;
-=======
 import java.util.HashMap;
 import java.util.Map;
 
@@ -12,23 +9,15 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
->>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-<<<<<<< HEAD
-import org.springframework.web.bind.annotation.RestController;
-
-import com.hilgo.cargo.request.DriverRequest;
-import com.hilgo.cargo.response.CargoResponse;
-=======
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.hilgo.cargo.request.DriverRequest;
 import com.hilgo.cargo.response.CargoesResponse;
->>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 import com.hilgo.cargo.response.DriverResponse;
 import com.hilgo.cargo.service.DriverService;
 
@@ -41,12 +30,8 @@ public class DriverController {
 
 	final private DriverService driverService;
 
-	@PostMapping("/takeCargo")
-<<<<<<< HEAD
-	public ResponseEntity<CargoResponse> takeCargo(@PathVariable Long cargoId){
-=======
+	
 	public ResponseEntity<Boolean> takeCargo(@PathVariable Long cargoId){
->>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 		return ResponseEntity.ok(driverService.takeCargo(cargoId));
 	}
 	
@@ -59,11 +44,7 @@ public class DriverController {
 	public ResponseEntity<DriverResponse> updateDriver(@RequestBody DriverRequest driverRequest)
 	{
 		return ResponseEntity.ok(driverService.updateDriver(driverRequest));
-<<<<<<< HEAD
 	}	
-	
-=======
-	}
 	
 	@GetMapping("/myCargoes")
 	public ResponseEntity<Map<String, Object>> getMyCargoes(
@@ -109,7 +90,6 @@ public class DriverController {
 		
 	}
 
->>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 	
 	
 	

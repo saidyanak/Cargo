@@ -40,14 +40,11 @@
     		<version>8.0.29</version>  <!-- veya en güncel sürümü kullanabilirsiniz -->
 		</dependency>
 		<dependency>
-<<<<<<< HEAD
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
 			<scope>runtime</scope>
 		</dependency>
 		<dependency>
-=======
->>>>>>> 48d8eb7f47d7460a19a29f7b199df3a9bbaf84b2
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
