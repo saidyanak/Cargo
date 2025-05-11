@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import com.hilgo.cargo.entity.enums.CargoSituation;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -31,13 +32,13 @@ public class Cargo {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@OneToOne
+	@OneToOne(cascade= CascadeType.ALL)
 	private Location selfLocation;
 
-	@OneToOne
+	@OneToOne(cascade= CascadeType.ALL)
 	private Location targetLocation;
 
-	@OneToOne
+	@OneToOne(cascade= CascadeType.ALL)
 	private Measure measure;
 
 	@Enumerated(EnumType.STRING)

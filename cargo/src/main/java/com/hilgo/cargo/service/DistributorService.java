@@ -173,7 +173,7 @@ public class DistributorService {
 				cargo.getId(),
 				new ResponseLocation(cargo.getSelfLocation().getLatitude(), cargo.getSelfLocation().getLongitude()),
 				new ResponseLocation(cargo.getTargetLocation().getLatitude(), cargo.getTargetLocation().getLongitude()),
-				new ResponseMeasure(cargo.getMeasure().getId(), cargo.getMeasure().getWeight(), cargo.getMeasure().getHeight(), cargo.getMeasure().getSize()),
+				new ResponseMeasure(cargo.getMeasure().getWeight(), cargo.getMeasure().getHeight(), cargo.getMeasure().getSize()),
 				cargo.getCargoSituation(),
 				cargo.getPhoneNumber(), 
 				cargo.getDistributor().getPhoneNumber()));
