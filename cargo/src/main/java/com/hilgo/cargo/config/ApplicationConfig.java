@@ -21,7 +21,8 @@ import lombok.RequiredArgsConstructor;
 public class ApplicationConfig {
 
 	private final UserRepository repository;
-
+	
+	
 	@Bean
 	public UserDetailsService userDetailsService() {
 		return username -> repository.findByUsername(username)

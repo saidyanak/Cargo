@@ -1,18 +1,18 @@
 package com.hilgo.cargo.request;
 
-import com.hilgo.cargo.entity.Address;
-
 import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class DistributorRequest {
 
 	private String phoneNumber;
-	private Address address;
+	private AddressRequest address;
 	private String username;
 	private String mail;
 	private String password;
