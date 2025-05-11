@@ -20,9 +20,9 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import lombok.AllArgsConstructor;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import lombok.Getter;
 
 @Getter
 @Setter
@@ -32,16 +32,20 @@ import lombok.Getter;
 @Inheritance(strategy = InheritanceType.JOINED)
 public class User implements UserDetails{
 	
+	
 	/**
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
-
+	
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "user_id")
 	private Long Id;
 	
+	@Column
+	private boolean active = true;
+
 	@Column
 	private String username;
 	
@@ -96,5 +100,15 @@ public class User implements UserDetails{
 	 @Override
 	public boolean isEnabled() {
 	    return enable;
+	}
+	public boolean isActive() {
+    return active;
+	}
+	public boolean  getActive(){
+		return active;
+	}
+	public void		setActive(boolean active)
+	{
+		this.active = active;
 	}
 }

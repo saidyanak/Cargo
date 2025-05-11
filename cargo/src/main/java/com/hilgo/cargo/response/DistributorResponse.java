@@ -15,6 +15,8 @@ import lombok.Setter;
 @Builder
 public class DistributorResponse {
 	
+	private String token;
+
 	private String vkn;
 	
 	private String username;
