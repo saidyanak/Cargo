@@ -8,6 +8,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -173,7 +174,8 @@ public class RegisterLoginService {
 			authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
 			UserResponse userResponse = new UserResponse(null, user.getUsername(), user.getEmail(), user.getRoles());
 			String token = jwtService.generateToken(user);
-						
+			user.setActive(true);
+			userRepository.save(user);
 			return LoginResponse.builder()
 					.token(token)
 					.userResponse(userResponse)
@@ -235,7 +237,7 @@ public class RegisterLoginService {
 				user.setPassword(passwordEncoder.encode(setPasswordRequest.getCheckPassword()));
 				user.setVerificationCode(null);
 				userRepository.save(user);
-				return new UserResponse(user.getUsername(), user.getEmail(), user.getRoles());
+				return new UserResponse(null, user.getUsername(), user.getEmail(), user.getRoles());
 			}else {
 				throw new RuntimeException("Şifreler Aynı Değil!");
 			}
@@ -243,5 +245,14 @@ public class RegisterLoginService {
 			throw new RuntimeException("Doğrulama kodu hatalı!");
 		}
 
+	}
+
+    public String logout() {
+		String username = SecurityContextHolder.getContext().getAuthentication().getName();
+		User user = userRepository.findByUsername(username).orElseThrow(() -> 
+		new RuntimeException("User not found"));
+		user.setActive(false);
+		userRepository.save(user);
+        return ("Logout");
 	}
 }

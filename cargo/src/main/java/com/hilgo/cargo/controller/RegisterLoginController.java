@@ -48,6 +48,12 @@ public class RegisterLoginController {
 		return ResponseEntity.ok(registerLoginService.auth(loginRequest));
 	}
 	
+	@PostMapping(path = "/logoutt")
+	public ResponseEntity<String> logout()
+	{
+		return ResponseEntity.ok(registerLoginService.logout());
+	}
+
 	@PostMapping(path = "/forgot")
 	public ResponseEntity<String> forgotPassword(@RequestParam String email){
 		return ResponseEntity.ok(registerLoginService.forgotPassword(email));

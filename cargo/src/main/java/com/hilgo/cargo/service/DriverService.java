@@ -34,6 +34,8 @@ public class DriverService {
 	final private UserRepository userRepository;
 	final private ShipmentSendRepository shipmentSendRepository;
 	final private DriverRepository driverRepository;
+	final private JwtService jwtService;
+
 
 	private String generateDeliveryCode() {
 		Random random = new Random();
@@ -105,7 +107,10 @@ public class DriverService {
 			driver.setUsername(driverRequest.getUsername());
 			((Driver) driver).setCarType(driverRequest.getCarType());
 			userRepository.save(driver);
-			return DriverResponse.builder().tc(((Driver) driver).getTc()).username(driver.getUsername())
+
+			String token = jwtService.generateToken(driver);
+
+			return DriverResponse.builder().token(token).tc(((Driver) driver).getTc()).username(driver.getUsername())
 					.carType(driverRequest.getCarType()).password(driver.getPassword())
 					.phoneNumber(driver.getPhoneNumber()).mail(driver.getMail()).build();
 		} else {

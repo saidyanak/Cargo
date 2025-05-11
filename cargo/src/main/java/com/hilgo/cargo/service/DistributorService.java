@@ -39,6 +39,7 @@ public class DistributorService {
 	final private CargoRepository cargoRepository;
 	final private DistributorRepository distributorRepository;
 	final private AddressRepository addressRepository;
+	final private JwtService jwtService;
 	
 	public DistributorResponse updateDistributor(DistributorRequest distributorRequest) {
 		
@@ -70,19 +71,13 @@ public class DistributorService {
 		dist.setPhoneNumber(distributorRequest.getPhoneNumber());
 		dist.setUsername(distributorRequest.getUsername());
 		dist.setMail(distributorRequest.getMail());
-		/*((Distributor)user).setPhoneNumber(distributorRequest.getPhoneNumber());
-		((Distributor)user).setAddress(
-			new Address(null, distributorRequest.getAddress().getCity(),
-		distributorRequest.getAddress().getNeighbourhood(),
-		distributorRequest.getAddress().getStreet(),
-		distributorRequest.getAddress().getBuild()));
-		user.setUsername(distributorRequest.getUsername());
-		user.setMail(distributorRequest.getMail());
-		userRepository.save(user);
-		*/
+
+		String token = jwtService.generateToken(user);
+
 		addressRepository.save(address);
 		distributorRepository.save(dist);
 		return DistributorResponse.builder()
+				.token(token)
 				.vkn(((Distributor)user).getVkn())
 				.username(user.getUsername())
 				.address(distributorRequest.getAddress())

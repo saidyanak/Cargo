@@ -15,6 +15,8 @@ import lombok.Setter;
 @Builder
 public class DriverResponse {
 
+	private String token;
+
 	private String tc;
 	
 	private String username;
