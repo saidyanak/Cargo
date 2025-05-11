@@ -29,19 +29,18 @@ public class SecurityConfiguration{
             .and()
             .authorizeHttpRequests()
             .requestMatchers("/auth/change","/auth/forgot", "/auth/setPassword").hasAnyAuthority("ROLE_DRIVER", "ROLE_DISTRIBUTOR")
-            .requestMatchers("/auth/**",
-            		"/v2/api-docs",
-            		"/v3/api-docs",
-            		"/v3/api-docs/**",
-            		"/swagger-resources",
-            		"/swagger-resources/**",
-            		"/configuration/ui",
-            		"/configuration/security",
-            		"/swagger-ui/**",
-            		"/webjars/**",
-            		"/swagger-ui.html").permitAll() 
+            .requestMatchers(
+    "/auth/**",
+                "/v3/api-docs/**",
+                "/swagger-ui/**",
+                "/swagger-ui.html",
+                "/swagger-config.yaml",
+                "/swagger-resources/**",
+                "/webjars/**",
+                "/configuration/**"
+            ).permitAll() 
             .requestMatchers("/distributor/**").hasAuthority("ROLE_DISTRIBUTOR")
-            .requestMatchers("/employee/**").hasAuthority("ROLE_EMPLOYEE")
+            .requestMatchers("/driver/**").hasAuthority("ROLE_DRIVER")
             .anyRequest().authenticated() 
             .and()
             .sessionManagement()
