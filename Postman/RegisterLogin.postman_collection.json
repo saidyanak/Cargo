@@ -1,0 +1,252 @@
+{
+	"info": {
+		"_postman_id": "13aae6fd-cb1b-4e83-9825-347d5bba2b47",
+		"name": "RegisterLogin",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "21754766"
+	},
+	"item": [
+		{
+			"name": "Register",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"tcOrVkn\" : \"12\",\r\n    \"mail\":\"{{$randomEmail}}\",\r\n    \"username\": \"said1\",\r\n    \"password\": \"123\",\r\n    \"phoneNumber\": \"3\",\r\n    \"role\":  \"DISTRIBUTOR\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/auth/register",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "verify",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"email\":\"Royce.Kilback50@hotmail.com\",\r\n    \"verificationCode\": \"467913\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/auth/verify",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth",
+						"verify"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "login",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Stores the authentication token in an environment or global variable\r",
+							"var authToken = pm.response.json().token;\r",
+							"pm.environment.set(\"token\", authToken);"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"username\":\"said4\",\r\n    \"password\": \"123\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/auth/login",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "forgot",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzYWlkIiwiaWF0IjoxNzQ2ODYyMTg1LCJleHAiOjE3NDY4ODAxODV9.JPj8faHPPIiRc1OPR2OembSGKHWbt25dDWDVwUylgZ4",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/auth/forgot?email=said.ynk@gmail.com",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth",
+						"forgot"
+					],
+					"query": [
+						{
+							"key": "email",
+							"value": "said.ynk@gmail.com"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "change",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzYWlkIiwiaWF0IjoxNzQ2ODYyMTg1LCJleHAiOjE3NDY4ODAxODV9.JPj8faHPPIiRc1OPR2OembSGKHWbt25dDWDVwUylgZ4",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/auth/change?email=said.ynk@gmail.com",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth",
+						"change"
+					],
+					"query": [
+						{
+							"key": "email",
+							"value": "said.ynk@gmail.com"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "setPassword",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzYWlkIiwiaWF0IjoxNzQ2ODYyMTg1LCJleHAiOjE3NDY4ODAxODV9.JPj8faHPPIiRc1OPR2OembSGKHWbt25dDWDVwUylgZ4",
+							"type": "string"
+						}
+					]
+				},
+				"method": "PUT",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"passwordCode\" : \"542179\",\r\n    \"password\"      : \"123\",\r\n    \"checkPassword\" : \"123\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/auth/setPassword?email=said.ynk@gmail.com",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth",
+						"setPassword"
+					],
+					"query": [
+						{
+							"key": "email",
+							"value": "said.ynk@gmail.com"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "random",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzYWlkIiwiaWF0IjoxNzQ2ODYyMTg1LCJleHAiOjE3NDY4ODAxODV9.JPj8faHPPIiRc1OPR2OembSGKHWbt25dDWDVwUylgZ4",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/random",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"random"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

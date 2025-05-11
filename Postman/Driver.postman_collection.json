@@ -1,0 +1,190 @@
+{
+	"info": {
+		"_postman_id": "6aeaa9c7-b60a-423c-a0a3-ae92080ccd5b",
+		"name": "Driver",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "21754766"
+	},
+	"item": [
+		{
+			"name": "takeCargo",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/driver/takeCargo/5",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"driver",
+						"takeCargo",
+						"5"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "deliverCargo",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/driver/deliverCargo/2/693353",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"driver",
+						"deliverCargo",
+						"2",
+						"693353"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "updateDriver",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"username\" : \"said4\",\r\n    \"carType\"     : \"SEDAN\",\r\n    \"phoneNumber\"    : \"123\",\r\n    \"mail\"        : \"{{$randomEmail}}\",\r\n    \"password\"    : \"123\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/driver/updateDriver",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"driver",
+						"updateDriver"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "getMyCargoes",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/driver/getMyCargoes?page=0&size=10&sortBy=id",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"driver",
+						"getMyCargoes"
+					],
+					"query": [
+						{
+							"key": "page",
+							"value": "0"
+						},
+						{
+							"key": "size",
+							"value": "10"
+						},
+						{
+							"key": "sortBy",
+							"value": "id"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "getAllCargoes",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/driver/getAllCargoes?page=0&size=10&sortBy=id",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"driver",
+						"getAllCargoes"
+					],
+					"query": [
+						{
+							"key": "page",
+							"value": "0"
+						},
+						{
+							"key": "size",
+							"value": "10"
+						},
+						{
+							"key": "sortBy",
+							"value": "id"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

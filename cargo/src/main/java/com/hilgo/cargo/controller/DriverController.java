@@ -30,13 +30,13 @@ public class DriverController {
 
 	final private DriverService driverService;
 
-	
-	public ResponseEntity<Boolean> takeCargo(@PathVariable Long cargoId){
+	@PostMapping("/takeCargo/{cargoId}")
+	public ResponseEntity<Boolean> takeCargo(@PathVariable("cargoId") Long cargoId){
 		return ResponseEntity.ok(driverService.takeCargo(cargoId));
 	}
 	
-	@PostMapping("/deliverCargo")
-	public ResponseEntity<Boolean> deliverCargo(@PathVariable Long cargoId, @PathVariable String deliveryCode ){
+	@PostMapping("/deliverCargo/{cargoId}/{deliveryCode}")
+	public ResponseEntity<Boolean> deliverCargo(@PathVariable("cargoId") Long cargoId, @PathVariable("deliveryCode") String deliveryCode ){
 		return ResponseEntity.ok(driverService.deliverCargo(cargoId, deliveryCode));
 	}
 	
@@ -46,7 +46,7 @@ public class DriverController {
 		return ResponseEntity.ok(driverService.updateDriver(driverRequest));
 	}	
 	
-	@GetMapping("/myCargoes")
+	@GetMapping("/getMyCargoes")
 	public ResponseEntity<Map<String, Object>> getMyCargoes(
 			@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "10") int size,
@@ -67,13 +67,13 @@ public class DriverController {
 		return ResponseEntity.ok(response);
 	}
 
-	@GetMapping
+	@GetMapping("/getAllCargoes")
 	public ResponseEntity<Map<String, Object>> getAllCargoes(
 			@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "10") int size,
 			@RequestParam(defaultValue = "id") String sortBy
 			){
-		Pageable pageable = PageRequest.of(page, size, null);
+		Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy));
 		Page<CargoesResponse> cargoPage = driverService.getAllCargoes(pageable);
 		
 		Map<String, Object> meta = new HashMap<String, Object>();

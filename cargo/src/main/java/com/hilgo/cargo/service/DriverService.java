@@ -62,6 +62,11 @@ public class DriverService {
 		if (!cargo.getVerificationCode().equals(verificationCode)) {
 			throw new RuntimeException("Incorrect verification code");
 		}
+
+		if (shipmentSendRepository.existsByCargo(cargo)) {
+        throw new RuntimeException("This cargo has already been delivered!");
+    }
+
 		cargo.setCargoSituation(CargoSituation.DELIVERED);
 		cargo.setDeliveredTime(LocalDateTime.now());
 		cargoRepository.save(cargo);
