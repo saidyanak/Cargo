@@ -10,3 +10,4 @@ public class CargoApplication {
 		SpringApplication.run(CargoApplication.class, args);
 	}
 }
+//https://67n86mnm-8080.euw.devtunnels.ms/

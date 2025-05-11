@@ -11,4 +11,6 @@ public interface DistributorRepository extends JpaRepository<Distributor, Long>{
 
 	Optional<User> findByUsername(String username);
 
+    Optional<Distributor> findByVkn(String tcOrVkn);
+
 }

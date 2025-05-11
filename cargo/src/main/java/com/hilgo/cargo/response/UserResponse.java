@@ -8,7 +8,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import lombok.Getter;
 
 @Getter
 @Setter
@@ -17,6 +16,7 @@ import lombok.Getter;
 @Builder
 public class UserResponse {
 
+	private String tcOrVkn;
 	private String username;
 	private String email;
 	private Roles role;

@@ -121,7 +121,7 @@ public class DriverService {
 				cargo.getId(),
 				new ResponseLocation(cargo.getSelfLocation().getLatitude(), cargo.getSelfLocation().getLongitude()),
 				new ResponseLocation(cargo.getTargetLocation().getLatitude(), cargo.getTargetLocation().getLongitude()),
-				new ResponseMeasure(cargo.getMeasure().getId(), cargo.getMeasure().getWeight(), cargo.getMeasure().getHeight()),
+				new ResponseMeasure(cargo.getMeasure().getId(), cargo.getMeasure().getWeight(), cargo.getMeasure().getHeight(), cargo.getMeasure().getSize()),
 				cargo.getCargoSituation(), 
 				cargo.getPhoneNumber(), 
 				cargo.getDistributor().getPhoneNumber()));
@@ -140,7 +140,7 @@ public class DriverService {
 				cargo.getId(),
 				new ResponseLocation(cargo.getSelfLocation().getLatitude(), cargo.getSelfLocation().getLongitude()),
 				new ResponseLocation(cargo.getTargetLocation().getLatitude(), cargo.getTargetLocation().getLongitude()),
-				new ResponseMeasure(cargo.getMeasure().getId(), cargo.getMeasure().getWeight(), cargo.getMeasure().getHeight()),
+				new ResponseMeasure(cargo.getMeasure().getId(), cargo.getMeasure().getWeight(), cargo.getMeasure().getHeight(), cargo.getMeasure().getSize()),
 				cargo.getCargoSituation(), 
 				cargo.getPhoneNumber(), 
 				cargo.getDistributor().getPhoneNumber()));

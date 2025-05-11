@@ -1,13 +1,15 @@
 package com.hilgo.cargo.response;
 
-import com.hilgo.cargo.entity.Address;
+import com.hilgo.cargo.request.AddressRequest;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
@@ -17,7 +19,7 @@ public class DistributorResponse {
 	
 	private String username;
 	
-	private Address address;
+	private AddressRequest address;
 	
 	private String password;
 	

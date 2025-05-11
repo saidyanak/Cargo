@@ -1,6 +1,5 @@
 package com.hilgo.cargo.service;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Random;
@@ -15,13 +14,14 @@ import org.springframework.stereotype.Service;
 import com.hilgo.cargo.entity.Distributor;
 import com.hilgo.cargo.entity.Driver;
 import com.hilgo.cargo.entity.User;
+import com.hilgo.cargo.repository.DistributorRepository;
+import com.hilgo.cargo.repository.DriverRepository;
+import com.hilgo.cargo.repository.UserRepository;
 import com.hilgo.cargo.request.LoginRequest;
+import com.hilgo.cargo.request.RegisterRequest;
 import com.hilgo.cargo.request.SetPasswordRequest;
 import com.hilgo.cargo.request.VerifyUserRequest;
 import com.hilgo.cargo.response.LoginResponse;
-import com.hilgo.cargo.repository.DriverRepository;
-import com.hilgo.cargo.repository.UserRepository;
-import com.hilgo.cargo.request.RegisterRequest;
 import com.hilgo.cargo.response.RegisterResponse;
 import com.hilgo.cargo.response.UserResponse;
 
@@ -38,7 +38,9 @@ public class RegisterLoginService {
 	private final AuthenticationManager authenticationManager;
 	private final JavaMailSender mailSender;
 	private final JwtService jwtService;
-	private final DriverRepository diDriverRepository;
+	private final DriverRepository driverRepository;
+	private final DistributorRepository distributorRepository;
+
 
 	private String generateVerificationCode() {
 		Random random = new Random();
@@ -46,10 +48,49 @@ public class RegisterLoginService {
 		return String.valueOf(code);
 	}
 
-	
-	public RegisterResponse register(RegisterRequest request) {
-
+	public RegisterResponse distributorRegister(RegisterRequest request)
+	{
 		User user;
+		Optional<Distributor> existingUserByVkn = distributorRepository.findByVkn(request.getTcOrVkn());
+		if (existingUserByVkn.isPresent()) {
+			throw new RuntimeException("Bu Vkn ile kayıtlı bir kullanıcı zaten var.");
+		}
+		user = new Distributor(request.getTcOrVkn(), null, null);
+		user.setMail(request.getMail());
+		user.setUsername(request.getUsername());
+		user.setPassword(passwordEncoder.encode(request.getPassword()));
+		user.setPhoneNumber(request.getPhoneNumber());
+		user.setRoles(request.getRole());
+		user.setVerificationCode(generateVerificationCode());
+		user.setVerificationCodeExpiresAt(LocalDateTime.now().plusHours(2));
+		user.setEnable(false);
+		userRepository.save(user);
+		sendVerificationCode(user);
+		return new RegisterResponse(new UserResponse(request.getTcOrVkn(), user.getUsername(), user.getMail(), user.getRoles()));
+	}
+	
+	public RegisterResponse driverRegister(RegisterRequest request)
+	{
+		User user;
+		Optional<Driver> existingUserTc = driverRepository.findByTc(request.getTcOrVkn());
+		if (existingUserTc.isPresent()) {
+			throw new RuntimeException("Bu Tc ile kayıtlı bir kullanıcı zaten var.");
+		}
+		user = new Driver(request.getTcOrVkn(), null, null, null);
+		user.setMail(request.getMail());
+		user.setUsername(request.getUsername());
+		user.setPassword(passwordEncoder.encode(request.getPassword()));
+		user.setPhoneNumber(request.getPhoneNumber());
+		user.setRoles(request.getRole());
+		user.setVerificationCode(generateVerificationCode());
+		user.setVerificationCodeExpiresAt(LocalDateTime.now().plusHours(2));
+		user.setEnable(false);
+		userRepository.save(user);
+		sendVerificationCode(user);
+		return new RegisterResponse(new UserResponse(request.getTcOrVkn(), user.getUsername(), user.getMail(), user.getRoles()));
+	}
+
+	public RegisterResponse register(RegisterRequest request) {
 		Optional<User> existingUserByEmail = userRepository.findByMail(request.getMail());
 		if (existingUserByEmail.isPresent()) {
 			throw new RuntimeException("Bu e-posta adresi ile kayıtlı bir kullanıcı zaten var.");
@@ -58,33 +99,16 @@ public class RegisterLoginService {
 		if (existingUserByUsername.isPresent()) {
 			throw new RuntimeException("Bu kullanıcı adı ile kayıtlı bir kullanıcı zaten var.");
 		}
-
 		Optional<User> existingUserByPhoneNumber = userRepository.findByPhoneNumber(request.getPhoneNumber());
 		if (existingUserByPhoneNumber.isPresent()) {
 			throw new RuntimeException("Bu telefon numarası ile kayıtlı bir kullanıcı zaten var.");
 		}
-
 		if (request.getRole().toString() == "DISTRIBUTOR") {
-			user = new Distributor();
+			return (distributorRegister(request));
 		}
 		else {
-			user = new Driver();
+			return (driverRegister(request));
 		}
-		
-		user.setMail(request.getMail());
-		user.setUsername(request.getUsername());
-		user.setPassword(passwordEncoder.encode(request.getPassword()));
-		user.setPhoneNumber(request.getPhoneNumber());
-		user.setRoles(request.getRole());
-		user.setVerificationCode(generateVerificationCode());
-		user.setVerificationCodeExpiresAt(LocalDateTime.now().plusHours(2));
-
-		user.setEnable(false);
-		
-		userRepository.save(user);
-		
-		sendVerificationCode(user);
-		return new RegisterResponse(new UserResponse(user.getUsername(), user.getMail(), user.getRoles()));
 	}
 
 	private void sendVerificationCode(User user) {
@@ -147,7 +171,7 @@ public class RegisterLoginService {
 			throw new RuntimeException("Hesap Doğrulanmadı!");
 		}else {
 			authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
-			UserResponse userResponse = new UserResponse(user.getUsername(), user.getEmail(), user.getRoles());
+			UserResponse userResponse = new UserResponse(null, user.getUsername(), user.getEmail(), user.getRoles());
 			String token = jwtService.generateToken(user);
 						
 			return LoginResponse.builder()
