@@ -44,13 +44,13 @@ public class DistributorController {
 		return ResponseEntity.ok(distributorService.addCargo(cargoRequest));
 	}
 	
-	@DeleteMapping("/deleteCargo")
-	public ResponseEntity<Boolean> deleteCargo(@PathVariable Long cargoId) {
+	@DeleteMapping("/deleteCargo/{cargoId}")
+	public ResponseEntity<Boolean> deleteCargo(@PathVariable("cargoId") Long cargoId) {
 		return ResponseEntity.ok(distributorService.deleteCargo(cargoId));
 	}
 	
-	@PutMapping("/updateCargo")
-	public ResponseEntity<CargoResponse> updateCargo(@PathVariable Long cargoId, @RequestBody CargoRequest cargoRequest){
+	@PutMapping("/updateCargo/{cargoId}")
+	public ResponseEntity<CargoResponse> updateCargo(@PathVariable("cargoId") Long cargoId, @RequestBody CargoRequest cargoRequest){
 		return ResponseEntity.ok(distributorService.updateCargo(cargoId, cargoRequest));
 	}
 

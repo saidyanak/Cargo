@@ -12,6 +12,6 @@ public interface DriverRepository extends JpaRepository<Driver, Long>{
 
 	Driver findByCargoId(Long cargoId);
 
-    Optional<Driver> findByTc(String tcOrVkn);
+    Optional<Driver> findByTc(String tc);
 	
 }

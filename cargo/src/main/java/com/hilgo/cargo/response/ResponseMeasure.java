@@ -11,9 +11,6 @@ import lombok.Setter;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ResponseMeasure {
-
-	private Long id;
-	
 	private Double weight;
 
 	private Double height;	
