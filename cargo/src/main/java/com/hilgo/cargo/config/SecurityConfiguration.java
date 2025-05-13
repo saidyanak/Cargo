@@ -34,6 +34,7 @@ public class SecurityConfiguration{
                 "/v3/api-docs/**",
                 "/swagger-ui/**",
                 "/swagger-ui.html",
+                "/swagger-ui.html#/**",
                 "/swagger-config.yaml",
                 "/swagger-resources/**",
                 "/webjars/**",
