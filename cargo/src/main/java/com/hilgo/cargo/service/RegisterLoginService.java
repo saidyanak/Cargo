@@ -6,6 +6,7 @@ import java.util.Random;
 
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -67,6 +68,7 @@ public class RegisterLoginService {
 		user.setEnable(false);
 		userRepository.save(user);
 		sendVerificationCode(user);
+		System.out.println("Asenkron iş dondü.");
 		return new RegisterResponse(new UserResponse(request.getTcOrVkn(), user.getUsername(), user.getMail(), user.getRoles()));
 	}
 	
@@ -88,6 +90,7 @@ public class RegisterLoginService {
 		user.setEnable(false);
 		userRepository.save(user);
 		sendVerificationCode(user);
+		System.out.println("Asenkron iş dondü.");
 		return new RegisterResponse(new UserResponse(request.getTcOrVkn(), user.getUsername(), user.getMail(), user.getRoles()));
 	}
 
@@ -112,9 +115,11 @@ public class RegisterLoginService {
 		}
 	}
 
+	@Async
 	private void sendVerificationCode(User user) {
 		MimeMessage mimeMessage = mailSender.createMimeMessage();
 
+		    System.out.println("Asenkron iş başladı.");
 		try {
 			MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
 
@@ -136,6 +141,8 @@ public class RegisterLoginService {
 		} catch (MessagingException e) {
 			throw new RuntimeException("Mail gönderilirken hata oluştu", e);
 		}
+		    System.out.println("Asenkron iş bitti.");
+
 	}
 	
 	private void sendVerificationEmail(User user, String passwordCode) {

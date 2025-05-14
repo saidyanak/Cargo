@@ -1,246 +1,222 @@
+import 'package:animate_do/animate_do.dart';
 import 'package:cargo_app/AuthService/AuthService.dart';
+import 'package:cargo_app/login_pages/RegisterPage.dart';  // RegisterPage'i import et
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+void main() => runApp(
+  MaterialApp(
+    debugShowCheckedModeBanner: false,
+    initialRoute: '/login',
+    routes: {
+      '/login': (context) => HomePage(), // Login sayfan bu zaten
+      '/register': (context) => RegisterPage(), // Eğer varsa
+      // Diğer sayfalar buraya eklenebilir
+    },
+  ),
+);
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
+class HomePage extends StatefulWidget {
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Cargo App',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const MyHomePage(title: 'Cargo App Home'),
-        '/login': (context) => const LoginPage(),
-        '/register': (context) => const RegisterPage(),
-        '/logout': (context) => const LogoutPage(),
-        '/random': (context) => const RandomPage(),
-      },
-    );
-  }
+  _HomePageState createState() => _HomePageState();
 }
 
-class MyHomePage extends StatelessWidget {
-  final String title;
-  const MyHomePage({super.key, required this.title});
+class _HomePageState extends State<HomePage> {
+  final usernameController = TextEditingController();
+  final passwordController = TextEditingController();
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, '/login'),
-              child: const Text('Login'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, '/register'),
-              child: const Text('Register'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, '/logout'),
-              child: const Text('Logout'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, '/random'),
-              child: const Text('Get Name (Token Required)'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+  Future<void> _login() async {
+    String username = usernameController.text;
+    String password = passwordController.text;
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
-  @override
-  State<LoginPage> createState() => _LoginPageState();
-}
-
-class _LoginPageState extends State<LoginPage> {
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
-
-  void _login() async {
-    String? token = await AuthService().login(
-      _usernameController.text,
-      _passwordController.text,
-    );
-
+    // Login işlemi
+    String? token = await AuthService.login(username, password);
     if (token != null) {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('jwt_token', token);
-
+      // Giriş başarılıysa, başka bir sayfaya yönlendirme yapabilirsiniz
+      // Örnek olarak:
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login Successful!')),
+        SnackBar(content: Text('Giriş başarılı!$token')),
       );
-      Navigator.pop(context);
+      // Örneğin, token ile bir ana sayfaya geçiş yapabilirsiniz
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login Failed')),
+        SnackBar(content: Text(token!)),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      backgroundColor: Colors.white,
+      body: SingleChildScrollView(
         child: Column(
-          children: [
-            TextField(
-              controller: _usernameController,
-              decoration: const InputDecoration(labelText: 'Username'),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Container(
+              height: 400,
+              child: Stack(
+                children: <Widget>[
+                  Positioned(
+                    top: -40,
+                    height: 400,
+                    width: width,
+                    child: FadeInUp(
+                      duration: Duration(seconds: 1),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          image: DecorationImage(
+                            image: AssetImage('assets/images/background.png'),
+                            fit: BoxFit.fill,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    height: 400,
+                    width: width + 20,
+                    child: FadeInUp(
+                      duration: Duration(milliseconds: 1000),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          image: DecorationImage(
+                            image: AssetImage('assets/images/background-2.png'),
+                            fit: BoxFit.fill,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Password'),
-              obscureText: true,
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  FadeInUp(
+                    duration: Duration(milliseconds: 1500),
+                    child: Text(
+                      "Login",
+                      style: TextStyle(
+                        color: Color.fromRGBO(49, 39, 79, 1),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 30,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 30),
+                  FadeInUp(
+                    duration: Duration(milliseconds: 1700),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: Colors.white,
+                        border: Border.all(
+                            color: Color.fromRGBO(196, 135, 198, .3)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color.fromRGBO(196, 135, 198, .3),
+                            blurRadius: 20,
+                            offset: Offset(0, 10),
+                          )
+                        ],
+                      ),
+                      child: Column(
+                        children: <Widget>[
+                          Container(
+                            padding: EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: Color.fromRGBO(196, 135, 198, .3),
+                                ),
+                              ),
+                            ),
+                            child: TextField(
+                              controller: usernameController,
+                              decoration: InputDecoration(
+                                border: InputBorder.none,
+                                hintText: "Username",
+                                hintStyle:
+                                    TextStyle(color: Colors.grey.shade700),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: EdgeInsets.all(10),
+                            child: TextField(
+                              controller: passwordController,
+                              obscureText: true,
+                              decoration: InputDecoration(
+                                border: InputBorder.none,
+                                hintText: "Password",
+                                hintStyle:
+                                    TextStyle(color: Colors.grey.shade700),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  FadeInUp(
+                    duration: Duration(milliseconds: 1700),
+                    child: Center(
+                      child: TextButton(
+                        onPressed: () {},
+                        child: Text(
+                          "Forgot Password?",
+                          style: TextStyle(
+                              color: Color.fromRGBO(196, 135, 198, 1)),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 30),
+                  FadeInUp(
+                    duration: Duration(milliseconds: 1900),
+                    child: MaterialButton(
+                      onPressed: _login,
+                      color: Color.fromRGBO(49, 39, 79, 1),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(50),
+                      ),
+                      height: 50,
+                      child: Center(
+                        child: Text(
+                          "Login",
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 30),
+                  FadeInUp(
+                    duration: Duration(milliseconds: 2000),
+                    child: Center(
+                      child: TextButton(
+                        onPressed: () {
+                          // "Create Account" butonuna tıklandığında RegisterPage'e git
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => RegisterPage()),
+                          );
+                        },
+                        child: Text(
+                          "Create Account",
+                          style: TextStyle(
+                              color: Color.fromRGBO(49, 39, 79, .6)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _login,
-              child: const Text('Login'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
-  @override
-  State<RegisterPage> createState() => _RegisterPageState();
-}
-
-class _RegisterPageState extends State<RegisterPage> {
-  final _tcOrVknController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _phoneNumberController = TextEditingController();
-  final _roleController = TextEditingController();
-
-  void _register() async {
-    bool isSuccess = await AuthService().register(
-      _tcOrVknController.text,
-      _emailController.text,
-      _usernameController.text,
-      _passwordController.text,
-      _phoneNumberController.text,
-      _roleController.text,
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(isSuccess ? 'Registration Successful' : 'Registration Failed')),
-    );
-    if (isSuccess) {
-      Navigator.pop(context);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Register')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(controller: _tcOrVknController, decoration: const InputDecoration(labelText: 'TC/VKN')),
-            TextField(controller: _emailController, decoration: const InputDecoration(labelText: 'Email')),
-            TextField(controller: _usernameController, decoration: const InputDecoration(labelText: 'Username')),
-            TextField(controller: _passwordController, decoration: const InputDecoration(labelText: 'Password'), obscureText: true),
-            TextField(controller: _phoneNumberController, decoration: const InputDecoration(labelText: 'Phone Number')),
-            TextField(controller: _roleController, decoration: const InputDecoration(labelText: 'Role')),
-            const SizedBox(height: 20),
-            ElevatedButton(onPressed: _register, child: const Text('Register')),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class LogoutPage extends StatelessWidget {
-  const LogoutPage({super.key});
-
-  void _logout(BuildContext context) async {
-    await AuthService().logout();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Logout Successful')),
-    );
-    Navigator.pop(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Logout')),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () => _logout(context),
-          child: const Text('Logout'),
-        ),
-      ),
-    );
-  }
-}
-
-class RandomPage extends StatefulWidget {
-  const RandomPage({super.key});
-  @override
-  State<RandomPage> createState() => _RandomPageState();
-}
-
-class _RandomPageState extends State<RandomPage> {
-  String _name = '';
-
-  void _getName() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? token = prefs.getString('jwt_token');
-
-    if (token != null) {
-      String? name = await AuthService().getNameFromToken(token);
-      setState(() {
-        _name = name ?? 'Hata alındı';
-      });
-    } else {
-      setState(() {
-        _name = 'Token bulunamadı. Lütfen giriş yapın.';
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Get Name')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            ElevatedButton(
-              onPressed: _getName,
-              child: const Text('Get Name from Token'),
-            ),
-            const SizedBox(height: 20),
-            Text(_name),
           ],
         ),
       ),

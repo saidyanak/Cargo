@@ -5,9 +5,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class AuthService {
   static const String _baseUrl = 'http://localhost:8080/auth';
   static const String _randomUrl = 'http://localhost:8080/random';
-  final _secureStorage = FlutterSecureStorage();
+  static final _secureStorage = FlutterSecureStorage();
 
-  Future<String?> login(String username, String password) async {
+   static Future<String?> login(String username, String password) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/login'),
       headers: {
@@ -26,7 +26,7 @@ class AuthService {
     }
   }
 
-  Future<void> logout() async {
+  static Future<void> logout() async {
     await _secureStorage.delete(key: 'auth_token');
     final response = await http.post(Uri.parse('$_baseUrl/logout'));
     if (response.statusCode == 200) {
@@ -36,7 +36,7 @@ class AuthService {
     }
   }
 
-  Future<bool> register(String tcOrVkn, String mail, String username, String password, String phoneNumber, String role) async {
+  static Future<bool> register(String tcOrVkn, String mail, String username, String password, String phoneNumber, String role) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/register'),
       headers: {
@@ -51,11 +51,11 @@ class AuthService {
         'role': role,
       }),
     );
-
-    return response.statusCode == 201;
+    print(response.statusCode);
+    return response.statusCode == 200;
   }
 
-  Future<String?> getNameFromToken(String token) async {
+  static Future<String?> getNameFromToken(String token) async {
     final String? token = await _secureStorage.read(key: 'auth_token');
     if (token == null) {
       print("Token bulunamadı");
@@ -77,5 +77,6 @@ class AuthService {
       print('Hata: ${response.statusCode}');
       return null;
     }
+    
   }
 }
