@@ -71,7 +71,7 @@ public class RegisterLoginService {
 		System.out.println("Asenkron iş dondü.");
 		return new RegisterResponse(new UserResponse(request.getTcOrVkn(), user.getUsername(), user.getMail(), user.getRoles()));
 	}
-	
+
 	public RegisterResponse driverRegister(RegisterRequest request)
 	{
 		User user;
@@ -144,7 +144,7 @@ public class RegisterLoginService {
 		    System.out.println("Asenkron iş bitti.");
 
 	}
-	
+
 	private void sendVerificationEmail(User user, String passwordCode) {
 		MimeMessage mimeMessage = mailSender.createMimeMessage();
 
@@ -170,8 +170,8 @@ public class RegisterLoginService {
 			throw new RuntimeException("Mail gönderilirken hata oluştu", e);
 		}
 	}
-	
-	
+
+
 	public LoginResponse auth(LoginRequest loginRequest) {
 		User user = userRepository.findByUsername(loginRequest.getUsername())
 				.orElseThrow(() -> new RuntimeException("User not found!"));
@@ -188,7 +188,7 @@ public class RegisterLoginService {
 					.userResponse(userResponse)
 					.build();
 		}
-		
+
 	}
 
 
@@ -209,25 +209,18 @@ public class RegisterLoginService {
 
 	public String forgotPassword(String email) {
 		User user = userRepository.findByMail(email).orElseThrow(() -> new RuntimeException("User not found!"));
-		String passwordCode = generateVerificationCode();
-		user.setVerificationCode(passwordCode);
-		user.setVerificationCodeExpiresAt(LocalDateTime.now().plusDays(2));
-		userRepository.save(user);
-		
-		try {
-			sendVerificationEmail(user, passwordCode);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		String token = generateToken(user);
+		String link = "http://localhost:8000/reset-password?token=" + token;
+		sendVerificationCode(user, link);
 		return "E-mail'inizi kontrol edin.";
 	}
-	
+
 	public String changePassword(String email) {
 		User user = userRepository.findByMail(email).orElseThrow(() -> new RuntimeException("User not found!"));
 		String passwordCode = generateVerificationCode();
 		user.setVerificationCode(passwordCode);
 		userRepository.save(user);
-		
+
 		try {
 			sendVerificationEmail(user, passwordCode);
 		} catch (Exception e) {
@@ -236,27 +229,26 @@ public class RegisterLoginService {
 		return "E-mail'inizi kontrol edin.";
 	}
 
-	public Object setPassword(String email, SetPasswordRequest setPasswordRequest) {
-		User user = userRepository.findByMail(email).orElseThrow(() -> new RuntimeException("User not found"));
-		
+	public boolean setPassword(SetPasswordRequest setPasswordRequest) {
+		User user = userRepository.findByMail(setPasswordRequest.getEmail).orElseThrow(() -> new RuntimeException("User not found"));
 		if (user.getVerificationCode().equals(setPasswordRequest.getPasswordCode())) {
 			if (setPasswordRequest.getPassword().equals(setPasswordRequest.getCheckPassword())) {
 				user.setPassword(passwordEncoder.encode(setPasswordRequest.getCheckPassword()));
 				user.setVerificationCode(null);
 				userRepository.save(user);
-				return new UserResponse(null, user.getUsername(), user.getEmail(), user.getRoles());
+				return true;
 			}else {
 				throw new RuntimeException("Şifreler Aynı Değil!");
 			}
 		}else {
 			throw new RuntimeException("Doğrulama kodu hatalı!");
 		}
-
+		return false;
 	}
 
     public String logout() {
 		String username = SecurityContextHolder.getContext().getAuthentication().getName();
-		User user = userRepository.findByUsername(username).orElseThrow(() -> 
+		User user = userRepository.findByUsername(username).orElseThrow(() ->
 		new RuntimeException("User not found"));
 		user.setActive(false);
 		userRepository.save(user);

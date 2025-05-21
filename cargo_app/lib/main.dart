@@ -43,7 +43,7 @@ class _HomePageState extends State<HomePage> {
       // Örneğin, token ile bir ana sayfaya geçiş yapabilirsiniz
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(token!)),
+        SnackBar(content: Text("Mail yada password yanlış")),
       );
     }
   }

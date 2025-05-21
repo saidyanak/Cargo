@@ -77,6 +77,76 @@ class AuthService {
       print('Hata: ${response.statusCode}');
       return null;
     }
-    
+
+  }
+
+  static Future<bool> verify(String email, String verificationCode) async
+  {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/verify'),
+      headers : {
+        'Content-Type': 'application/json',
+      },
+      body : json.encode({
+        'email': email,
+        'verificationCode': verificationCode,
+      }),
+    );
+    return (response.statusCode == 200);
+  }
+
+    // Forgot Password
+  static Future<bool> forgotPassword(String email) async {
+    try {
+      // email parametresi URL query parametresi olarak gönderiliyor
+      final response = await http.post(
+        Uri.parse('$_baseUrl/forgot?email=$email'),
+      );
+
+      print('Forgot Password Response: ${response.statusCode}');
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error in forgotPassword: $e');
+      return false;
+    }
+  }
+
+  // Change Password
+  static Future<bool> changePassword(String email) async {
+    try {
+      // email parametresi JSON body olarak gönderiliyor
+      final response = await http.post(
+        Uri.parse('$_baseUrl/change'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email}),
+      );
+
+      print('Change Password Response: ${response.statusCode}');
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error in changePassword: $e');
+      return false;
+    }
+  }
+
+  // Set Password
+  static Future<bool> setPassword(String email, String password) async {
+    try {
+      // email ve password JSON body olarak gönderiliyor
+      final response = await http.put(
+        Uri.parse('$_baseUrl/setPassword'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email,
+          'password': password,
+        }),
+      );
+
+      print('Set Password Response: ${response.statusCode}');
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error in setPassword: $e');
+      return false;
+    }
   }
 }

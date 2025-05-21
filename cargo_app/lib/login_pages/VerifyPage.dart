@@ -1,6 +1,6 @@
 import 'package:animate_do/animate_do.dart';
-import 'package:cargo_app/AuthService/AuthService.dart';
 import 'package:flutter/material.dart';
+import 'package:cargo_app/AuthService/AuthService.dart';
 
 class VerifyPage extends StatefulWidget {
   const VerifyPage({super.key});
@@ -12,12 +12,8 @@ class VerifyPage extends StatefulWidget {
 class _VerifyPageState extends State<VerifyPage> {
   final _formKey = GlobalKey<FormState>();
 
-  final _tcOrVknController = TextEditingController();
   final _emailController = TextEditingController();
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _phoneNumberController = TextEditingController();
-  String _selectedRole = 'DRIVER'; // Varsayılan rol
+  final _verificationCodeController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +68,7 @@ class _VerifyPageState extends State<VerifyPage> {
                     child: FadeInUp(
                       duration: const Duration(milliseconds: 1000),
                       child: const Text(
-                        "Register",
+                        "Verification",
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 40,
@@ -93,31 +89,12 @@ class _VerifyPageState extends State<VerifyPage> {
                   key: _formKey,
                   child: Column(
                     children: [
-                      _buildTextField(_tcOrVknController, 'TC/VKN'),
                       _buildTextField(_emailController, 'Email'),
-                      _buildTextField(_usernameController, 'Username'),
-                      _buildTextField(_passwordController, 'Password', isPassword: true),
-                      _buildTextField(_phoneNumberController, 'Phone Number'),
-                      const SizedBox(height: 10),
-                      DropdownButtonFormField<String>(
-                        value: _selectedRole,
-                        decoration: const InputDecoration(labelText: 'Role'),
-                        items: ['DRIVER', 'DISTRIBUTOR']
-                            .map((role) => DropdownMenuItem(
-                                  value: role,
-                                  child: Text(role),
-                                ))
-                            .toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedRole = value!;
-                          });
-                        },
-                      ),
+                      _buildTextField(_verificationCodeController, 'Verification Code'),
                       const SizedBox(height: 20),
                       ElevatedButton(
                         onPressed: _submitForm,
-                        child: const Text("Register"),
+                        child: const Text("Verify"),
                       ),
                     ],
                   ),
@@ -143,31 +120,27 @@ class _VerifyPageState extends State<VerifyPage> {
     );
   }
 
- void _submitForm() async {
-  if (_formKey.currentState!.validate()) {
-    final success = await AuthService.register(
-      _tcOrVknController.text,
-      _emailController.text,
-      _usernameController.text,
-      _passwordController.text,
-      _phoneNumberController.text,
-      _selectedRole,
-    );
+  void _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      final bool success = await AuthService.verify(
+        _emailController.text,
+        _verificationCodeController.text,
+      );
 
-    if (success) {
-      // Kayıt başarılı
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kayıt başarılı! Lütfen mail adresinizi kontrol.')),
-      );
-      Navigator.pushReplacementNamed(context, '/login');
-    } else {
-      // Kayıt başarısız
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kayıt başarısız. Lütfen tekrar deneyin.')),
-      );
+      if (success) {
+        // Doğrulama başarılı
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Doğrulama başarılı!')),
+        );
+        Navigator.pushReplacementNamed(context, '/login'); // Ana sayfaya yönlendir
+      } else {
+        // Doğrulama başarısız
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Doğrulama başarısız. Lütfen tekrar deneyin.')),
+        );
+      }
     }
-  }
   }
 }

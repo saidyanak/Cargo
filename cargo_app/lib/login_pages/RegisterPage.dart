@@ -160,7 +160,7 @@ class _RegisterPageState extends State<RegisterPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Kayıt başarılı! Lütfen mail adresinizi kontrol.')),
       );
-      Navigator.pushReplacementNamed(context, '/login');
+      Navigator.pushReplacementNamed(context, '/verify');
     } else {
       // Kayıt başarısız
       if (!mounted) return;
