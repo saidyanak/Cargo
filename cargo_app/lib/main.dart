@@ -1,6 +1,8 @@
 import 'package:animate_do/animate_do.dart';
 import 'package:cargo_app/AuthService/AuthService.dart';
 import 'package:cargo_app/login_pages/RegisterPage.dart';  // RegisterPage'i import et
+import 'package:cargo_app/login_pages/ForgotPage.dart';  // RegisterPage'i import et
+import 'package:cargo_app/login_pages/VerifyPage.dart';  // RegisterPage'i import et
 import 'package:flutter/material.dart';
 
 void main() => runApp(
@@ -10,6 +12,8 @@ void main() => runApp(
     routes: {
       '/login': (context) => HomePage(), // Login sayfan bu zaten
       '/register': (context) => RegisterPage(), // Eğer varsa
+      '/forgot': (content) => ForgotPage(),
+      '/verify': (content) => VerifyPage(),
       // Diğer sayfalar buraya eklenebilir
     },
   ),
@@ -167,9 +171,33 @@ class _HomePageState extends State<HomePage> {
                     duration: Duration(milliseconds: 1700),
                     child: Center(
                       child: TextButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => ForgotPage()),
+                            );
+                        },
                         child: Text(
                           "Forgot Password?",
+                          style: TextStyle(
+                              color: Color.fromRGBO(196, 135, 198, 1)),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  FadeInUp(
+                    duration: Duration(milliseconds: 2100),
+                    child: Center(
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => VerifyPage()),
+                            );
+                        },
+                        child: Text(
+                          "Verify Email",
                           style: TextStyle(
                               color: Color.fromRGBO(196, 135, 198, 1)),
                         ),
