@@ -11,3 +11,5 @@ public class CargoApplication {
 	}
 }
 //https://67n86mnm-8080.euw.devtunnels.ms/
+//taskkill /PID 5900 /F
+//netstat -aon | findstr :8080
