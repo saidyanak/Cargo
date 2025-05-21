@@ -15,6 +15,9 @@ import com.hilgo.cargo.request.VerifyUserRequest;
 import com.hilgo.cargo.response.LoginResponse;
 import com.hilgo.cargo.response.RegisterResponse;
 import com.hilgo.cargo.service.RegisterLoginService;
+import com.hilgo.cargo.repository.UserRepository;
+import com.hilgo.cargo.entity.User;
+
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,7 +28,8 @@ import lombok.RequiredArgsConstructor;
 public class RegisterLoginController {
 
 	private final RegisterLoginService registerLoginService;
-	
+	private final UserRepository	userRepository;
+
 	@PostMapping(path = "/register")
 	public ResponseEntity<RegisterResponse> register(@RequestBody RegisterRequest registerRequest)
 	{
@@ -41,13 +45,13 @@ public class RegisterLoginController {
 			return ResponseEntity.badRequest().body(e.getMessage());
 		}
 	}
-	
+
 	@PostMapping(path = "/login")
 	public ResponseEntity<LoginResponse> auth(@RequestBody LoginRequest loginRequest)
 	{
 		return ResponseEntity.ok(registerLoginService.auth(loginRequest));
 	}
-	
+
 	@PostMapping(path = "/logoutt")
 	public ResponseEntity<String> logout()
 	{
@@ -58,14 +62,26 @@ public class RegisterLoginController {
 	public ResponseEntity<String> forgotPassword(@RequestParam String email){
 		return ResponseEntity.ok(registerLoginService.forgotPassword(email));
 	}
-	
+
 	@PostMapping(path = "/change")
 	public ResponseEntity<String> changePasswprd(@RequestParam String email){
 		return ResponseEntity.ok(registerLoginService.changePassword(email));
 	}
-	
+
 	@PutMapping(path = "/setPassword")
-	public ResponseEntity<?> setPassword(@RequestParam String email, @RequestBody SetPasswordRequest setPasswordRequest){
-		return ResponseEntity.ok(registerLoginService.setPassword(email, setPasswordRequest));
-	}
+	public ResponseEntity<String> setPassword(@RequestParam String token, @RequestBody SetPasswordRequest setPasswordRequest) {
+	User user = userRepository.findByMail(setPasswordRequest.getEmail).orElseThrow(() -> new RuntimeException("User not found!"));
+    boolean tokenValid = isTokenValid(token, user);
+    if (tokenValid) {
+        // Token geçerli ise, şifreyi değiştir
+        boolean passwordChanged = registerLoginService.changePassword(setPasswordRequest);
+        if (passwordChanged) {
+            return ResponseEntity.ok("Password successfully updated.");
+        } else {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to update password.");
+        }
+    } else {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid or expired reset token.");
+    }
+}
 }

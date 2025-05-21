@@ -28,9 +28,9 @@ public class SecurityConfiguration{
             .cors()
             .and()
             .authorizeHttpRequests()
-            .requestMatchers("/auth/change","/auth/forgot", "/auth/setPassword").hasAnyAuthority("ROLE_DRIVER", "ROLE_DISTRIBUTOR")
+            //.requestMatchers("/auth/change","/auth/forgot", "/auth/setPassword").hasAnyAuthority("ROLE_DRIVER", "ROLE_DISTRIBUTOR")
             .requestMatchers(
-    "/auth/**",
+                "/auth/**",
                 "/v3/api-docs/**",
                 "/swagger-ui/**",
                 "/swagger-ui.html",
@@ -39,10 +39,10 @@ public class SecurityConfiguration{
                 "/swagger-resources/**",
                 "/webjars/**",
                 "/configuration/**"
-            ).permitAll() 
+            ).permitAll()
             .requestMatchers("/distributor/**").hasAuthority("ROLE_DISTRIBUTOR")
             .requestMatchers("/driver/**").hasAuthority("ROLE_DRIVER")
-            .anyRequest().authenticated() 
+            .anyRequest().authenticated()
             .and()
             .sessionManagement()
             .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
@@ -56,7 +56,7 @@ public class SecurityConfiguration{
 
         return http.build();
     }
-    
-    
-    
+
+
+
 }

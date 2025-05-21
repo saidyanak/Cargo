@@ -11,6 +11,7 @@ import lombok.Setter;
 @AllArgsConstructor
 public class SetPasswordRequest {
 
+	private String email;
 	private String passwordCode;
 	private String password;
 	private String checkPassword;
