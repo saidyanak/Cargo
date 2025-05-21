@@ -209,9 +209,9 @@ public class RegisterLoginService {
 
 	public String forgotPassword(String email) {
 		User user = userRepository.findByMail(email).orElseThrow(() -> new RuntimeException("User not found!"));
-		String token = generateToken(user);
+		String token = jwtService.generateToken(user);
 		String link = "http://localhost:8000/reset-password?token=" + token;
-		sendVerificationCode(user, link);
+		sendVerificationEmail(user, link);
 		return "E-mail'inizi kontrol edin.";
 	}
 
@@ -230,20 +230,15 @@ public class RegisterLoginService {
 	}
 
 	public boolean setPassword(SetPasswordRequest setPasswordRequest) {
-		User user = userRepository.findByMail(setPasswordRequest.getEmail).orElseThrow(() -> new RuntimeException("User not found"));
-		if (user.getVerificationCode().equals(setPasswordRequest.getPasswordCode())) {
-			if (setPasswordRequest.getPassword().equals(setPasswordRequest.getCheckPassword())) {
-				user.setPassword(passwordEncoder.encode(setPasswordRequest.getCheckPassword()));
-				user.setVerificationCode(null);
-				userRepository.save(user);
-				return true;
-			}else {
-				throw new RuntimeException("Şifreler Aynı Değil!");
-			}
+		User user = userRepository.findByMail(setPasswordRequest.getEmail()).orElseThrow(() -> new RuntimeException("User not found"));
+		if (setPasswordRequest.getPassword().equals(setPasswordRequest.getCheckPassword())) {
+			user.setPassword(passwordEncoder.encode(setPasswordRequest.getCheckPassword()));
+			user.setVerificationCode(null);
+			userRepository.save(user);
+			return true;
 		}else {
-			throw new RuntimeException("Doğrulama kodu hatalı!");
+			throw new RuntimeException("Şifreler Aynı Değil!");
 		}
-		return false;
 	}
 
     public String logout() {
