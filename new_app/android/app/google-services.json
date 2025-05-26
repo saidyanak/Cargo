@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "865558148469",
+    "project_id": "hilgo-cargo-project-e0dbc",
+    "storage_bucket": "hilgo-cargo-project-e0dbc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:865558148469:android:4332d12b2be5b1ee474f3c",
+        "android_client_info": {
+          "package_name": "com.example.new_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC9NOBg1ZATkWoZN87GIvBK9QaYAPq_VJ4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

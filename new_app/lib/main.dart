@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -28,6 +29,9 @@ import 'screens/map_selection_screen.dart';
 import 'screens/rating_screen.dart';
 import 'screens/photo_gallery_screen.dart';
 
+import 'firebase_options.dart';
+
+
 // State Management
 import 'providers/app_state_provider.dart';
 import 'providers/user_provider.dart';
@@ -37,7 +41,9 @@ void main() async {
   
   // Firebase başlatma
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     print('Firebase başlatıldı');
   } catch (e) {
     print('Firebase başlatma hatası: $e');
@@ -58,17 +64,30 @@ void main() async {
 }
 
 Future<void> _requestPermissions() async {
-  // Konum izni
-  await Permission.location.request();
-  
-  // Kamera izni
-  await Permission.camera.request();
-  
-  // Depolama izni
-  await Permission.storage.request();
-  
-  // Bildirim izni
-  await Permission.notification.request();
+  final locationStatus = await Permission.location.request();
+  if (!locationStatus.isGranted) {
+    print('Konum izni reddedildi!');
+  }
+
+  final cameraStatus = await Permission.camera.request();
+  if (!cameraStatus.isGranted) {
+    print('Kamera izni reddedildi!');
+  }
+
+  if (!kIsWeb) {
+    // Web platformunda storage izni desteklenmiyor, sadece mobilde iste
+    final storageStatus = await Permission.storage.request();
+    if (!storageStatus.isGranted) {
+      print('Depolama izni reddedildi!');
+    }
+  } else {
+    print('Storage permission is not required on web');
+  }
+
+  final notificationStatus = await Permission.notification.request();
+  if (!notificationStatus.isGranted) {
+    print('Bildirim izni reddedildi!');
+  }
 }
 
 class CargoApp extends StatelessWidget {
