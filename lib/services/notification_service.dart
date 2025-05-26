@@ -1,16 +1,14 @@
-import 'package:flutter/foundation.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-// Firebase imports - sadece mobilde kullan
-import 'package:firebase_messaging/firebase_messaging.dart' if (dart.library.html) 'dart:html';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart' if (dart.library.html) 'dart:html';
-
 class NotificationService {
-  static FirebaseMessaging? _firebaseMessaging;
-  static FlutterLocalNotificationsPlugin? _localNotifications;
+  static final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  static final FlutterLocalNotificationsPlugin _localNotifications = 
+      FlutterLocalNotificationsPlugin();
   static final _secureStorage = FlutterSecureStorage();
   static String? _fcmToken;
   
@@ -18,36 +16,11 @@ class NotificationService {
   static Function(String)? onNotificationTapped;
   static Function(Map<String, dynamic>)? onMessageReceived;
 
-  // Platform kontrolü ile başlatma
+  // Bildirim servisi başlatma
   static Future<void> initialize() async {
-    if (kIsWeb) {
-      print('Web platformu - Bildirimler basit modda çalışacak');
-      await _initializeWebNotifications();
-      return;
-    }
-
-    // Mobil platform - tam Firebase desteği
-    await _initializeMobileNotifications();
-  }
-
-  // Web için basit bildirim sistemi
-  static Future<void> _initializeWebNotifications() async {
     try {
-      // Web için basit notification API kullanılabilir
-      print('Web bildirimleri başlatıldı');
-    } catch (e) {
-      print('Web bildirim hatası: $e');
-    }
-  }
-
-  // Mobil için tam Firebase bildirimleri
-  static Future<void> _initializeMobileNotifications() async {
-    try {
-      _firebaseMessaging = FirebaseMessaging.instance;
-      _localNotifications = FlutterLocalNotificationsPlugin();
-
       // Firebase bildirim izinleri
-      NotificationSettings settings = await _firebaseMessaging!.requestPermission(
+      NotificationSettings settings = await _firebaseMessaging.requestPermission(
         alert: true,
         badge: true,
         sound: true,
@@ -60,7 +33,7 @@ class NotificationService {
       print('Bildirim izin durumu: ${settings.authorizationStatus}');
 
       // FCM token al
-      _fcmToken = await _firebaseMessaging!.getToken();
+      _fcmToken = await _firebaseMessaging.getToken();
       print('FCM Token: $_fcmToken');
       
       if (_fcmToken != null) {
@@ -69,7 +42,7 @@ class NotificationService {
       }
 
       // Token yenilenme dinleyicisi
-      _firebaseMessaging!.onTokenRefresh.listen((newToken) async {
+      _firebaseMessaging.onTokenRefresh.listen((newToken) async {
         print('FCM Token yenilendi: $newToken');
         _fcmToken = newToken;
         await _secureStorage.write(key: 'fcm_token', value: newToken);
@@ -92,7 +65,7 @@ class NotificationService {
         iOS: iosSettings,
       );
 
-      await _localNotifications!.initialize(
+      await _localNotifications.initialize(
         initSettings,
         onDidReceiveNotificationResponse: _onNotificationTapped,
       );
@@ -103,19 +76,17 @@ class NotificationService {
       // Mesaj dinleyicilerini kur
       _setupMessageHandlers();
 
-      print('Mobil bildirim servisi başarıyla başlatıldı');
+      print('Bildirim servisi başarıyla başlatıldı');
     } catch (e) {
-      print('Mobil bildirim servisi başlatma hatası: $e');
+      print('Bildirim servisi başlatma hatası: $e');
     }
   }
 
   // Android bildirim kanalı oluştur
   static Future<void> _createNotificationChannel() async {
-    if (kIsWeb || _localNotifications == null) return;
-
     const androidChannel = AndroidNotificationChannel(
-      'cargo_high_importance_channel',
-      'Cargo App Bildirimleri',
+      'cargo_high_importance_channel', // id
+      'Cargo App Bildirimleri', // title
       description: 'Kargo durumu ve önemli bildirimler',
       importance: Importance.high,
       playSound: true,
@@ -123,15 +94,13 @@ class NotificationService {
       showBadge: true,
     );
 
-    await _localNotifications!
+    await _localNotifications
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(androidChannel);
   }
 
   // Mesaj işleyicilerini kur
   static void _setupMessageHandlers() {
-    if (kIsWeb || _firebaseMessaging == null) return;
-
     // Uygulama açıkken gelen mesajlar
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
     
@@ -144,10 +113,8 @@ class NotificationService {
 
   // Uygulama kapalıyken gelen mesajı kontrol et
   static Future<void> _checkInitialMessage() async {
-    if (kIsWeb || _firebaseMessaging == null) return;
-
     try {
-      RemoteMessage? initialMessage = await _firebaseMessaging!.getInitialMessage();
+      RemoteMessage? initialMessage = await _firebaseMessaging.getInitialMessage();
       if (initialMessage != null) {
         _handleBackgroundMessage(initialMessage);
       }
@@ -157,34 +124,28 @@ class NotificationService {
   }
 
   // Ön planda gelen mesajları işle
-  static Future<void> _handleForegroundMessage(dynamic message) async {
-    if (kIsWeb) return;
-
-    final RemoteMessage remoteMessage = message as RemoteMessage;
-    print('Foreground mesaj alındı: ${remoteMessage.messageId}');
+  static Future<void> _handleForegroundMessage(RemoteMessage message) async {
+    print('Foreground mesaj alındı: ${message.messageId}');
     
     // Callback çağır
-    onMessageReceived?.call(remoteMessage.data);
+    onMessageReceived?.call(message.data);
     
     // Local bildirim göster
     await _showLocalNotification(
-      title: remoteMessage.notification?.title ?? 'Cargo App',
-      body: remoteMessage.notification?.body ?? 'Yeni bildirim',
-      payload: json.encode(remoteMessage.data),
-      data: remoteMessage.data,
+      title: message.notification?.title ?? 'Cargo App',
+      body: message.notification?.body ?? 'Yeni bildirim',
+      payload: json.encode(message.data),
+      data: message.data,
     );
   }
 
   // Arka plan mesajlarını işle
-  static Future<void> _handleBackgroundMessage(dynamic message) async {
-    if (kIsWeb) return;
-
-    final RemoteMessage remoteMessage = message as RemoteMessage;
-    print('Background mesaj açıldı: ${remoteMessage.messageId}');
+  static Future<void> _handleBackgroundMessage(RemoteMessage message) async {
+    print('Background mesaj açıldı: ${message.messageId}');
     
     // Mesaj tipine göre yönlendirme
-    final String? type = remoteMessage.data['type'];
-    final String? cargoId = remoteMessage.data['cargo_id'];
+    final String? type = message.data['type'];
+    final String? cargoId = message.data['cargo_id'];
     
     if (onNotificationTapped != null) {
       if (type == 'cargo_status' && cargoId != null) {
@@ -229,14 +190,6 @@ class NotificationService {
     String? payload,
     Map<String, dynamic>? data,
   }) async {
-    if (kIsWeb) {
-      // Web için basit alert
-      print('Web Bildirim: $title - $body');
-      return;
-    }
-
-    if (_localNotifications == null) return;
-
     try {
       const androidDetails = AndroidNotificationDetails(
         'cargo_high_importance_channel',
@@ -263,7 +216,7 @@ class NotificationService {
         iOS: iosDetails,
       );
 
-      await _localNotifications!.show(
+      await _localNotifications.show(
         DateTime.now().millisecondsSinceEpoch.remainder(100000),
         title,
         body,
@@ -296,20 +249,22 @@ class NotificationService {
     }
   }
 
-  // Public metodlar - Platform kontrolü ile
+  // Public metodlar
   
   // FCM token al
   static Future<String?> getToken() async {
-    if (kIsWeb) return 'web_token_placeholder';
-    return _fcmToken ?? await _firebaseMessaging?.getToken();
+    try {
+      return _fcmToken ?? await _firebaseMessaging.getToken();
+    } catch (e) {
+      print('Token alma hatası: $e');
+      return null;
+    }
   }
 
   // Topic'e abone ol
   static Future<void> subscribeToTopic(String topic) async {
-    if (kIsWeb) return;
-    
     try {
-      await _firebaseMessaging?.subscribeToTopic(topic);
+      await _firebaseMessaging.subscribeToTopic(topic);
       print('Topic aboneliği: $topic');
     } catch (e) {
       print('Topic abonelik hatası: $e');
@@ -318,17 +273,15 @@ class NotificationService {
 
   // Topic aboneliğini iptal et
   static Future<void> unsubscribeFromTopic(String topic) async {
-    if (kIsWeb) return;
-    
     try {
-      await _firebaseMessaging?.unsubscribeFromTopic(topic);
+      await _firebaseMessaging.unsubscribeFromTopic(topic);
       print('Topic abonelik iptali: $topic');
     } catch (e) {
       print('Topic abonelik iptal hatası: $e');
     }
   }
 
-  // Platform-safe bildirim metodları
+  // Özel bildirim türleri
   
   // Kargo durumu bildirimi
   static Future<void> showCargoStatusNotification({
@@ -395,15 +348,107 @@ class NotificationService {
     );
   }
 
+  // Teslim hatırlatması
+  static Future<void> showDeliveryReminderNotification({
+    required String cargoId,
+    required String description,
+  }) async {
+    await _showLocalNotification(
+      title: '⏰ Teslim Hatırlatması',
+      body: 'Teslim edilmesi gereken kargo: $description',
+      payload: json.encode({
+        'type': 'delivery_reminder',
+        'cargo_id': cargoId,
+      }),
+      data: {
+        'type': 'delivery_reminder',
+        'cargo_id': cargoId,
+      },
+    );
+  }
+
+  // Yaklaşma bildirimi
+  static Future<void> showProximityNotification({
+    required String cargoId,
+    required String location,
+    required double distanceKm,
+  }) async {
+    await _showLocalNotification(
+      title: '📍 Hedefe Yaklaştınız',
+      body: '$location konumuna ${distanceKm.toStringAsFixed(1)} km mesafede',
+      payload: json.encode({
+        'type': 'proximity',
+        'cargo_id': cargoId,
+      }),
+      data: {
+        'type': 'proximity',
+        'cargo_id': cargoId,
+      },
+    );
+  }
+
+  // Rating hatırlatması
+  static Future<void> showRatingReminderNotification({
+    required String cargoId,
+    required String targetName,
+    required String targetType, // 'driver' or 'distributor'
+  }) async {
+    final typeText = targetType == 'driver' ? 'sürücüyü' : 'kargo vereni';
+    
+    await _showLocalNotification(
+      title: '⭐ Değerlendirme Zamanı',
+      body: 'Lütfen $targetName adlı ${typeText} değerlendirin',
+      payload: json.encode({
+        'type': 'rating_reminder',
+        'cargo_id': cargoId,
+        'target_type': targetType,
+      }),
+      data: {
+        'type': 'rating_reminder',
+        'cargo_id': cargoId,
+        'target_type': targetType,
+      },
+    );
+  }
+
   // Tüm bildirimleri temizle
   static Future<void> clearAllNotifications() async {
-    if (kIsWeb) return;
-    
     try {
-      await _localNotifications?.cancelAll();
+      await _localNotifications.cancelAll();
       print('Tüm bildirimler temizlendi');
     } catch (e) {
       print('Bildirim temizleme hatası: $e');
+    }
+  }
+
+  // Belirli bir bildirimi iptal et
+  static Future<void> cancelNotification(int id) async {
+    try {
+      await _localNotifications.cancel(id);
+      print('Bildirim iptal edildi: $id');
+    } catch (e) {
+      print('Bildirim iptal hatası: $e');
+    }
+  }
+
+  // Basit zamanlanmış bildirim (timezone olmadan)
+  static Future<void> scheduleSimpleNotification({
+    required String title,
+    required String body,
+    required Duration delay,
+    String? payload,
+  }) async {
+    try {
+      // Basit bir delay ile bildirim zamanla
+      Future.delayed(delay, () async {
+        await _showLocalNotification(
+          title: title,
+          body: body,
+          payload: payload,
+        );
+      });
+    } catch (e) {
+      print('Zamanlanmış bildirim hatası: $e');
     }
   }
 }
