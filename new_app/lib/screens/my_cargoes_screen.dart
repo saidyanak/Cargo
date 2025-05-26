@@ -12,35 +12,91 @@ class _MyCargoesScreenState extends State<MyCargoesScreen> {
   List<Map<String, dynamic>> _myCargoes = [];
   bool _isLoading = true;
   String _selectedStatusFilter = 'Tümü';
+  int _currentPage = 0;
+  bool _hasMoreData = true;
+  final ScrollController _scrollController = ScrollController();
 
   final List<String> _statusFilterOptions = [
     'Tümü',
     'Atandı',
     'Alındı',
     'Teslim Edildi',
+    'İptal Edildi',
   ];
 
   @override
   void initState() {
     super.initState();
     _loadMyCargoes();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoading && _hasMoreData) {
+        _loadMoreCargoes();
+      }
+    }
   }
 
   Future<void> _loadMyCargoes() async {
     setState(() {
       _isLoading = true;
+      _currentPage = 0;
+      _myCargoes.clear();
+      _hasMoreData = true;
     });
 
     try {
-      final result = await CargoService.getDriverCargoes(size: 50);
-      if (result != null && result['content'] != null) {
+      final result = await CargoService.getDriverCargoes(
+        page: _currentPage,
+        size: 10,
+      );
+      
+      if (result != null) {
+        final List<dynamic> cargoList = result['data'] ?? [];
+        final Map<String, dynamic> meta = result['meta'] ?? {};
+        
         setState(() {
-          _myCargoes = List<Map<String, dynamic>>.from(result['content']);
+          _myCargoes = cargoList.cast<Map<String, dynamic>>();
+          _hasMoreData = !(meta['isLast'] ?? true);
           _isLoading = false;
         });
       }
     } catch (e) {
       print('Error loading my cargoes: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadMoreCargoes() async {
+    if (_isLoading || !_hasMoreData) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final result = await CargoService.getDriverCargoes(
+        page: _currentPage + 1,
+        size: 10,
+      );
+
+      if (result != null) {
+        final List<dynamic> newCargoes = result['data'] ?? [];
+        final Map<String, dynamic> meta = result['meta'] ?? {};
+        
+        setState(() {
+          _myCargoes.addAll(newCargoes.cast<Map<String, dynamic>>());
+          _currentPage++;
+          _hasMoreData = !(meta['isLast'] ?? true);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading more cargoes: $e');
       setState(() {
         _isLoading = false;
       });
@@ -63,44 +119,14 @@ class _MyCargoesScreenState extends State<MyCargoesScreen> {
       case 'Teslim Edildi':
         filterStatus = 'DELIVERED';
         break;
+      case 'İptal Edildi':
+        filterStatus = 'CANCELLED';
+        break;
       default:
         return _myCargoes;
     }
 
     return _myCargoes.where((cargo) => cargo['cargoSituation'] == filterStatus).toList();
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'ASSIGNED':
-        return Colors.orange;
-      case 'PICKED_UP':
-        return Colors.purple;
-      case 'DELIVERED':
-        return Colors.green;
-      case 'CANCELLED':
-      case 'FAILED':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _getStatusText(String status) {
-    switch (status) {
-      case 'ASSIGNED':
-        return 'Atandı';
-      case 'PICKED_UP':
-        return 'Alındı';
-      case 'DELIVERED':
-        return 'Teslim Edildi';
-      case 'CANCELLED':
-        return 'İptal Edildi';
-      case 'FAILED':
-        return 'Başarısız';
-      default:
-        return status;
-    }
   }
 
   Widget _getStatusAction(Map<String, dynamic> cargo) {
@@ -156,8 +182,6 @@ class _MyCargoesScreenState extends State<MyCargoesScreen> {
   }
 
   Future<void> _showPickupDialog(Map<String, dynamic> cargo) async {
-    // Bu fonksiyon gerçek uygulamada kargo alma işlemini simüle eder
-    // Backend'de ASSIGNED durumundan PICKED_UP durumuna geçiş yapılır
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -171,7 +195,7 @@ class _MyCargoesScreenState extends State<MyCargoesScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              // Burada backend API çağrısı yapılacak (şimdilik simüle ediyoruz)
+              // Burada backend API çağrısı yapılacak (pickup işlemi için ayrı endpoint)
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Kargo teslim alındı!'),
@@ -190,8 +214,8 @@ class _MyCargoesScreenState extends State<MyCargoesScreen> {
 
   Widget _buildCargoCard(Map<String, dynamic> cargo) {
     final status = cargo['cargoSituation'] ?? '';
-    final statusColor = _getStatusColor(status);
-    final statusText = _getStatusText(status);
+    final statusColor = CargoHelper.getStatusColor(status);
+    final statusText = CargoHelper.getStatusDisplayName(status);
 
     return Card(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -260,7 +284,7 @@ class _MyCargoesScreenState extends State<MyCargoesScreen> {
                   Icon(Icons.scale, size: 16, color: Colors.grey[600]),
                   SizedBox(width: 4),
                   Text(
-                    '${cargo['measure']?['weight'] ?? 0} kg',
+                    CargoHelper.formatWeight(cargo['measure']?['weight']),
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                 ],
@@ -271,7 +295,7 @@ class _MyCargoesScreenState extends State<MyCargoesScreen> {
                   Icon(Icons.straighten, size: 16, color: Colors.grey[600]),
                   SizedBox(width: 4),
                   Text(
-                    '${cargo['measure']?['height'] ?? 0} cm',
+                    CargoHelper.formatHeight(cargo['measure']?['height']),
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                   Spacer(),
@@ -282,7 +306,7 @@ class _MyCargoesScreenState extends State<MyCargoesScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      cargo['measure']?['size'] ?? 'M',
+                      CargoHelper.getSizeDisplayName(cargo['measure']?['size']),
                       style: TextStyle(
                         color: Colors.blue,
                         fontSize: 12,
@@ -301,7 +325,7 @@ class _MyCargoesScreenState extends State<MyCargoesScreen> {
                   SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      'Alınacak: ${cargo['selfLocation']?['latitude']?.toStringAsFixed(4)}, ${cargo['selfLocation']?['longitude']?.toStringAsFixed(4)}',
+                      'Alınacak: ${cargo['selfLocation']?['latitude']?.toStringAsFixed(4) ?? 'N/A'}, ${cargo['selfLocation']?['longitude']?.toStringAsFixed(4) ?? 'N/A'}',
                       style: TextStyle(color: Colors.grey[600], fontSize: 12),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -315,7 +339,7 @@ class _MyCargoesScreenState extends State<MyCargoesScreen> {
                   SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      'Teslim: ${cargo['targetLocation']?['latitude']?.toStringAsFixed(4)}, ${cargo['targetLocation']?['longitude']?.toStringAsFixed(4)}',
+                      'Teslim: ${cargo['targetLocation']?['latitude']?.toStringAsFixed(4) ?? 'N/A'}, ${cargo['targetLocation']?['longitude']?.toStringAsFixed(4) ?? 'N/A'}',
                       style: TextStyle(color: Colors.grey[600], fontSize: 12),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -400,7 +424,7 @@ class _MyCargoesScreenState extends State<MyCargoesScreen> {
           ),
           
           // Sonuç sayısı
-          if (!_isLoading)
+          if (!_isLoading || _myCargoes.isNotEmpty)
             Container(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
@@ -430,7 +454,7 @@ class _MyCargoesScreenState extends State<MyCargoesScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: _loadMyCargoes,
-              child: _isLoading
+              child: _isLoading && _myCargoes.isEmpty
                   ? Center(child: CircularProgressIndicator())
                   : filteredCargoes.isEmpty
                       ? Center(
@@ -468,8 +492,15 @@ class _MyCargoesScreenState extends State<MyCargoesScreen> {
                           ),
                         )
                       : ListView.builder(
-                          itemCount: filteredCargoes.length,
+                          controller: _scrollController,
+                          itemCount: filteredCargoes.length + (_hasMoreData && _isLoading ? 1 : 0),
                           itemBuilder: (context, index) {
+                            if (index == filteredCargoes.length) {
+                              return Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Center(child: CircularProgressIndicator()),
+                              );
+                            }
                             return _buildCargoCard(filteredCargoes[index]);
                           },
                         ),
@@ -478,5 +509,11 @@ class _MyCargoesScreenState extends State<MyCargoesScreen> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 }

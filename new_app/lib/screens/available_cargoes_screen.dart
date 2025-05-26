@@ -12,7 +12,10 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
   bool _isLoading = true;
   String _searchQuery = '';
   String _selectedSizeFilter = 'Tümü';
+  int _currentPage = 0;
+  bool _hasMoreData = true;
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   final List<String> _sizeFilterOptions = ['Tümü', 'S', 'M', 'L', 'XL', 'XXL'];
 
@@ -20,29 +23,85 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
   void initState() {
     super.initState();
     _loadAvailableCargoes();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoading && _hasMoreData) {
+        _loadMoreCargoes();
+      }
+    }
   }
 
   Future<void> _loadAvailableCargoes() async {
     setState(() {
       _isLoading = true;
+      _currentPage = 0;
+      _availableCargoes.clear();
+      _hasMoreData = true;
     });
 
     try {
-      final result = await CargoService.getAllCargoes(size: 50); // Daha fazla kargo al
-      if (result != null && result['content'] != null) {
-        final allCargoes = List<Map<String, dynamic>>.from(result['content']);
+      final result = await CargoService.getAllCargoes(
+        page: _currentPage,
+        size: 20,
+      );
+      
+      if (result != null) {
+        final List<dynamic> cargoList = result['data'] ?? [];
+        final Map<String, dynamic> meta = result['meta'] ?? {};
+        
         // Sadece oluşturulmuş kargoları filtrele
-        final availableCargoes = allCargoes
+        final availableCargoes = cargoList
             .where((cargo) => cargo['cargoSituation'] == 'CREATED')
             .toList();
         
         setState(() {
-          _availableCargoes = availableCargoes;
+          _availableCargoes = availableCargoes.cast<Map<String, dynamic>>();
+          _hasMoreData = !(meta['isLast'] ?? true);
           _isLoading = false;
         });
       }
     } catch (e) {
       print('Error loading available cargoes: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadMoreCargoes() async {
+    if (_isLoading || !_hasMoreData) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final result = await CargoService.getAllCargoes(
+        page: _currentPage + 1,
+        size: 20,
+      );
+
+      if (result != null) {
+        final List<dynamic> newCargoes = result['data'] ?? [];
+        final Map<String, dynamic> meta = result['meta'] ?? {};
+        
+        // Sadece oluşturulmuş kargoları filtrele
+        final availableCargoes = newCargoes
+            .where((cargo) => cargo['cargoSituation'] == 'CREATED')
+            .toList();
+        
+        setState(() {
+          _availableCargoes.addAll(availableCargoes.cast<Map<String, dynamic>>());
+          _currentPage++;
+          _hasMoreData = !(meta['isLast'] ?? true);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading more cargoes: $e');
       setState(() {
         _isLoading = false;
       });
@@ -132,10 +191,10 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
                     Row(
                       children: [
                         Text('Ağırlık: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text('${cargo['measure']?['weight'] ?? 0} kg'),
+                        Text(CargoHelper.formatWeight(cargo['measure']?['weight'])),
                         Spacer(),
                         Text('Boyut: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text(cargo['measure']?['size'] ?? 'M'),
+                        Text(CargoHelper.getSizeDisplayName(cargo['measure']?['size'])),
                       ],
                     ),
                     SizedBox(height: 4),
@@ -233,7 +292,7 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
                   Icon(Icons.scale, size: 16, color: Colors.grey[600]),
                   SizedBox(width: 4),
                   Text(
-                    '${cargo['measure']?['weight'] ?? 0} kg',
+                    CargoHelper.formatWeight(cargo['measure']?['weight']),
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                 ],
@@ -244,7 +303,7 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
                   Icon(Icons.straighten, size: 16, color: Colors.grey[600]),
                   SizedBox(width: 4),
                   Text(
-                    '${cargo['measure']?['height'] ?? 0} cm',
+                    CargoHelper.formatHeight(cargo['measure']?['height']),
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                   Spacer(),
@@ -255,7 +314,7 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      cargo['measure']?['size'] ?? 'M',
+                      CargoHelper.getSizeDisplayName(cargo['measure']?['size']),
                       style: TextStyle(
                         color: Colors.blue,
                         fontSize: 12,
@@ -267,14 +326,17 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
               ),
               SizedBox(height: 8),
               
-              // Konum bilgisi (opsiyonel)
+              // Konum bilgisi
               Row(
                 children: [
                   Icon(Icons.location_on, size: 16, color: Colors.green[600]),
                   SizedBox(width: 4),
-                  Text(
-                    'Alınacak konum: ${cargo['selfLocation']?['latitude']?.toStringAsFixed(4)}, ${cargo['selfLocation']?['longitude']?.toStringAsFixed(4)}',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  Expanded(
+                    child: Text(
+                      'Alınacak: ${cargo['selfLocation']?['latitude']?.toStringAsFixed(4) ?? 'N/A'}, ${cargo['selfLocation']?['longitude']?.toStringAsFixed(4) ?? 'N/A'}',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -283,9 +345,12 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
                 children: [
                   Icon(Icons.flag, size: 16, color: Colors.red[600]),
                   SizedBox(width: 4),
-                  Text(
-                    'Teslim konumu: ${cargo['targetLocation']?['latitude']?.toStringAsFixed(4)}, ${cargo['targetLocation']?['longitude']?.toStringAsFixed(4)}',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  Expanded(
+                    child: Text(
+                      'Teslim: ${cargo['targetLocation']?['latitude']?.toStringAsFixed(4) ?? 'N/A'}, ${cargo['targetLocation']?['longitude']?.toStringAsFixed(4) ?? 'N/A'}',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -363,7 +428,7 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
                             items: _sizeFilterOptions.map((size) {
                               return DropdownMenuItem(
                                 value: size,
-                                child: Text(size),
+                                child: Text(size == 'Tümü' ? size : CargoHelper.getSizeDisplayName(size)),
                               );
                             }).toList(),
                             onChanged: (value) {
@@ -382,7 +447,7 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
           ),
           
           // Sonuç sayısı
-          if (!_isLoading)
+          if (!_isLoading || _availableCargoes.isNotEmpty)
             Container(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
@@ -414,7 +479,7 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: _loadAvailableCargoes,
-              child: _isLoading
+              child: _isLoading && _availableCargoes.isEmpty
                   ? Center(child: CircularProgressIndicator())
                   : filteredCargoes.isEmpty
                       ? Center(
@@ -454,8 +519,15 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
                           ),
                         )
                       : ListView.builder(
-                          itemCount: filteredCargoes.length,
+                          controller: _scrollController,
+                          itemCount: filteredCargoes.length + (_hasMoreData && _isLoading ? 1 : 0),
                           itemBuilder: (context, index) {
+                            if (index == filteredCargoes.length) {
+                              return Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Center(child: CircularProgressIndicator()),
+                              );
+                            }
                             return _buildCargoCard(filteredCargoes[index]);
                           },
                         ),
@@ -469,6 +541,7 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 }

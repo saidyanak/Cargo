@@ -41,10 +41,32 @@ class _DistributorHomeScreenState extends State<DistributorHomeScreen> {
 
   Future<void> _loadRecentCargoes() async {
     try {
-      final result = await CargoService.getDistributorCargoes(size: 5);
-      if (result != null && result['content'] != null) {
+      print('=== LOADING RECENT CARGOES FOR DISTRIBUTOR ===');
+      final result = await CargoService.getDistributorCargoes(page: 0, size: 5);
+      print('Recent cargoes result: $result');
+      
+      if (result != null) {
+        List<dynamic> cargoList = [];
+        
+        // Backend response yapısını kontrol et
+        if (result.containsKey('data') && result['data'] is List) {
+          cargoList = result['data'] as List<dynamic>;
+        } else if (result is List) {
+          cargoList = result as List<dynamic>;
+        } else if (result.containsKey('content') && result['content'] is List) {
+          cargoList = result['content'] as List<dynamic>;
+        }
+        
+        print('Cargo list found: $cargoList');
+        
         setState(() {
-          _recentCargoes = List<Map<String, dynamic>>.from(result['content']);
+          _recentCargoes = cargoList.cast<Map<String, dynamic>>();
+          _isLoading = false;
+        });
+      } else {
+        print('Result is null');
+        setState(() {
+          _recentCargoes = [];
           _isLoading = false;
         });
       }
@@ -301,8 +323,8 @@ class _DistributorHomeScreenState extends State<DistributorHomeScreen> {
 
   Widget _buildCargoCard(Map<String, dynamic> cargo) {
     final status = cargo['cargoSituation'] ?? 'CREATED';
-    final statusColor = _getStatusColor(status);
-    final statusText = _getStatusText(status);
+    final statusColor = CargoHelper.getStatusColor(status);
+    final statusText = CargoHelper.getStatusDisplayName(status);
 
     return Card(
       margin: EdgeInsets.only(bottom: 12),
@@ -357,7 +379,7 @@ class _DistributorHomeScreenState extends State<DistributorHomeScreen> {
                 Icon(Icons.scale, size: 16, color: Colors.grey[600]),
                 SizedBox(width: 4),
                 Text(
-                  '${cargo['measure']?['weight'] ?? 0} kg',
+                  CargoHelper.formatWeight(cargo['measure']?['weight']),
                   style: TextStyle(color: Colors.grey[600]),
                 ),
               ],
@@ -366,47 +388,6 @@ class _DistributorHomeScreenState extends State<DistributorHomeScreen> {
         ),
       ),
     );
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'CREATED':
-        return Colors.blue;
-      case 'ASSIGNED':
-        return Colors.orange;
-      case 'PICKED_UP':
-        return Colors.purple;
-      case 'DELIVERED':
-        return Colors.green;
-      case 'CANCELLED':
-      case 'FAILED':
-        return Colors.red;
-      case 'EXPIRED':
-        return Colors.grey;
-      default:
-        return Colors.blue;
-    }
-  }
-
-  String _getStatusText(String status) {
-    switch (status) {
-      case 'CREATED':
-        return 'Oluşturuldu';
-      case 'ASSIGNED':
-        return 'Atandı';
-      case 'PICKED_UP':
-        return 'Alındı';
-      case 'DELIVERED':
-        return 'Teslim Edildi';
-      case 'CANCELLED':
-        return 'İptal Edildi';
-      case 'FAILED':
-        return 'Başarısız';
-      case 'EXPIRED':
-        return 'Süresi Doldu';
-      default:
-        return status;
-    }
   }
 
   @override
