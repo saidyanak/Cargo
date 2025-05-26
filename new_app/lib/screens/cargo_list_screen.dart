@@ -35,18 +35,59 @@ class _CargoListScreenState extends State<CargoListScreen> {
     setState(() {
       _isLoading = true;
       _currentPage = 0;
+      _cargoes.clear();
+      _hasMoreData = true;
     });
 
     try {
+      print('=== LOADING DISTRIBUTOR CARGOES ===');
       final result = await CargoService.getDistributorCargoes(
         page: _currentPage,
         size: _pageSize,
       );
 
-      if (result != null && result['content'] != null) {
+      print('Service result: $result');
+
+      if (result != null) {
+        // Backend response yapısını kontrol et
+        List<dynamic> cargoList = [];
+        Map<String, dynamic> meta = {};
+        
+        // Eğer data key'i varsa onu kullan
+        if (result.containsKey('data') && result['data'] is List) {
+          cargoList = result['data'] as List<dynamic>;
+          meta = result['meta'] as Map<String, dynamic>? ?? {};
+        } 
+        // Eğer direkt array dönüyorsa
+        else if (result is List) {
+          cargoList = result as List<dynamic>;
+          meta = {'isLast': true}; // Son sayfa olarak işaretle
+        }
+        // Eğer content key'i varsa (Spring Boot default)
+        else if (result.containsKey('content') && result['content'] is List) {
+          cargoList = result['content'] as List<dynamic>;
+          meta = {
+            'isLast': result['last'] ?? true,
+            'totalItems': result['totalElements'] ?? 0,
+            'currentPage': result['number'] ?? 0,
+            'pageSize': result['size'] ?? _pageSize,
+            'isFirst': result['first'] ?? true,
+          };
+        }
+        
+        print('Cargo list: $cargoList');
+        print('Meta: $meta');
+        
         setState(() {
-          _cargoes = List<Map<String, dynamic>>.from(result['content']);
-          _hasMoreData = !result['last'];
+          _cargoes = cargoList.cast<Map<String, dynamic>>();
+          _hasMoreData = !(meta['isLast'] ?? true);
+          _isLoading = false;
+        });
+      } else {
+        print('Result is null');
+        setState(() {
+          _cargoes = [];
+          _hasMoreData = false;
           _isLoading = false;
         });
       }
@@ -71,12 +112,32 @@ class _CargoListScreenState extends State<CargoListScreen> {
         size: _pageSize,
       );
 
-      if (result != null && result['content'] != null) {
-        final newCargoes = List<Map<String, dynamic>>.from(result['content']);
+      if (result != null) {
+        // Backend response yapısını kontrol et
+        List<dynamic> newCargoes = [];
+        Map<String, dynamic> meta = {};
+        
+        if (result.containsKey('data') && result['data'] is List) {
+          newCargoes = result['data'] as List<dynamic>;
+          meta = result['meta'] as Map<String, dynamic>? ?? {};
+        } else if (result is List) {
+          newCargoes = result as List<dynamic>;
+          meta = {'isLast': true};
+        } else if (result.containsKey('content') && result['content'] is List) {
+          newCargoes = result['content'] as List<dynamic>;
+          meta = {
+            'isLast': result['last'] ?? true,
+            'totalItems': result['totalElements'] ?? 0,
+            'currentPage': result['number'] ?? 0,
+            'pageSize': result['size'] ?? _pageSize,
+            'isFirst': result['first'] ?? true,
+          };
+        }
+        
         setState(() {
-          _cargoes.addAll(newCargoes);
+          _cargoes.addAll(newCargoes.cast<Map<String, dynamic>>());
           _currentPage++;
-          _hasMoreData = !result['last'];
+          _hasMoreData = !(meta['isLast'] ?? true);
           _isLoading = false;
         });
       }
@@ -131,51 +192,10 @@ class _CargoListScreenState extends State<CargoListScreen> {
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'CREATED':
-        return Colors.blue;
-      case 'ASSIGNED':
-        return Colors.orange;
-      case 'PICKED_UP':
-        return Colors.purple;
-      case 'DELIVERED':
-        return Colors.green;
-      case 'CANCELLED':
-      case 'FAILED':
-        return Colors.red;
-      case 'EXPIRED':
-        return Colors.grey;
-      default:
-        return Colors.blue;
-    }
-  }
-
-  String _getStatusText(String status) {
-    switch (status) {
-      case 'CREATED':
-        return 'Oluşturuldu';
-      case 'ASSIGNED':
-        return 'Atandı';
-      case 'PICKED_UP':
-        return 'Alındı';
-      case 'DELIVERED':
-        return 'Teslim Edildi';
-      case 'CANCELLED':
-        return 'İptal Edildi';
-      case 'FAILED':
-        return 'Başarısız';
-      case 'EXPIRED':
-        return 'Süresi Doldu';
-      default:
-        return status;
-    }
-  }
-
   Widget _buildCargoCard(Map<String, dynamic> cargo) {
     final status = cargo['cargoSituation'] ?? 'CREATED';
-    final statusColor = _getStatusColor(status);
-    final statusText = _getStatusText(status);
+    final statusColor = CargoHelper.getStatusColor(status);
+    final statusText = CargoHelper.getStatusDisplayName(status);
     final canEdit = status == 'CREATED'; // Sadece oluşturulmuş kargolar düzenlenebilir
 
     return Card(
@@ -235,7 +255,7 @@ class _CargoListScreenState extends State<CargoListScreen> {
                 Icon(Icons.scale, size: 16, color: Colors.grey[600]),
                 SizedBox(width: 4),
                 Text(
-                  '${cargo['measure']?['weight'] ?? 0} kg',
+                  CargoHelper.formatWeight(cargo['measure']?['weight']),
                   style: TextStyle(color: Colors.grey[600]),
                 ),
               ],
@@ -246,7 +266,7 @@ class _CargoListScreenState extends State<CargoListScreen> {
                 Icon(Icons.straighten, size: 16, color: Colors.grey[600]),
                 SizedBox(width: 4),
                 Text(
-                  '${cargo['measure']?['height'] ?? 0} cm',
+                  CargoHelper.formatHeight(cargo['measure']?['height']),
                   style: TextStyle(color: Colors.grey[600]),
                 ),
                 Spacer(),
@@ -257,7 +277,7 @@ class _CargoListScreenState extends State<CargoListScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    cargo['measure']?['size'] ?? 'M',
+                    CargoHelper.getSizeDisplayName(cargo['measure']?['size']),
                     style: TextStyle(
                       color: Colors.blue,
                       fontSize: 12,
@@ -267,6 +287,22 @@ class _CargoListScreenState extends State<CargoListScreen> {
                 ),
               ],
             ),
+            
+            // Tarih bilgisi
+            if (cargo['createdAt'] != null) ...[
+              SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                  SizedBox(width: 4),
+                  Text(
+                    'Oluşturulma: ${CargoHelper.formatDate(cargo['createdAt'])}',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                ],
+              ),
+            ],
+            
             SizedBox(height: 16),
             
             // Alt butonlar
@@ -371,7 +407,7 @@ class _CargoListScreenState extends State<CargoListScreen> {
                   )
                 : ListView.builder(
                     controller: _scrollController,
-                    itemCount: _cargoes.length + (_hasMoreData ? 1 : 0),
+                    itemCount: _cargoes.length + (_hasMoreData && _isLoading ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (index == _cargoes.length) {
                         return Padding(

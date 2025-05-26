@@ -43,18 +43,26 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   Future<void> _loadCargoes() async {
     try {
       // Kendi kargolarını yükle
-      final myCargoesResult = await CargoService.getDriverCargoes(size: 5);
-      if (myCargoesResult != null && myCargoesResult['content'] != null) {
+      final myCargoesResult = await CargoService.getDriverCargoes(page: 0, size: 5);
+      if (myCargoesResult != null) {
+        final List<dynamic> myCargoList = myCargoesResult['data'] ?? [];
         setState(() {
-          _myCargoes = List<Map<String, dynamic>>.from(myCargoesResult['content']);
+          _myCargoes = myCargoList.cast<Map<String, dynamic>>();
         });
       }
 
       // Mevcut kargoları yükle
-      final availableCargoesResult = await CargoService.getAllCargoes(size: 10);
-      if (availableCargoesResult != null && availableCargoesResult['content'] != null) {
+      final availableCargoesResult = await CargoService.getAllCargoes(page: 0, size: 10);
+      if (availableCargoesResult != null) {
+        final List<dynamic> allCargoList = availableCargoesResult['data'] ?? [];
+        // Sadece oluşturulmuş kargoları filtrele
+        final availableCargoes = allCargoList
+            .where((cargo) => cargo['cargoSituation'] == 'CREATED')
+            .take(5)
+            .toList();
+        
         setState(() {
-          _availableCargoes = List<Map<String, dynamic>>.from(availableCargoesResult['content']);
+          _availableCargoes = availableCargoes.cast<Map<String, dynamic>>();
         });
       }
 
@@ -132,7 +140,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               'Açıklama: ${cargo['description'] ?? 'Açıklama yok'}',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
-            Text('Ağırlık: ${cargo['measure']?['weight'] ?? 0} kg'),
+            Text('Ağırlık: ${CargoHelper.formatWeight(cargo['measure']?['weight'])}'),
             Text('Telefon: ${cargo['phoneNumber'] ?? ''}'),
           ],
         ),
@@ -340,7 +348,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                       )
                     : Column(
                         children: _availableCargoes
-                            .take(5)
                             .map((cargo) => _buildAvailableCargoCard(cargo))
                             .toList(),
                       ),
@@ -426,9 +433,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   }
 
   Widget _buildAvailableCargoCard(Map<String, dynamic> cargo) {
-    final status = cargo['cargoSituation'] ?? 'CREATED';
-    if (status != 'CREATED') return SizedBox.shrink(); // Sadece oluşturulmuş kargoları göster
-
     return Card(
       margin: EdgeInsets.only(bottom: 12),
       elevation: 2,
@@ -476,7 +480,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 Icon(Icons.scale, size: 16, color: Colors.grey[600]),
                 SizedBox(width: 4),
                 Text(
-                  '${cargo['measure']?['weight'] ?? 0} kg',
+                  CargoHelper.formatWeight(cargo['measure']?['weight']),
                   style: TextStyle(color: Colors.grey[600]),
                 ),
               ],
@@ -487,7 +491,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 Icon(Icons.straighten, size: 16, color: Colors.grey[600]),
                 SizedBox(width: 4),
                 Text(
-                  '${cargo['measure']?['height'] ?? 0} cm',
+                  CargoHelper.formatHeight(cargo['measure']?['height']),
                   style: TextStyle(color: Colors.grey[600]),
                 ),
                 Spacer(),
@@ -498,7 +502,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    cargo['measure']?['size'] ?? 'M',
+                    CargoHelper.getSizeDisplayName(cargo['measure']?['size']),
                     style: TextStyle(
                       color: Colors.blue,
                       fontSize: 12,
