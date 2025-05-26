@@ -1,0 +1,62 @@
+name: cargo_app
+description: A Flutter cargo delivery application
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # HTTP işlemleri
+  http: ^1.1.0
+  
+  # Güvenli depolama
+  flutter_secure_storage: ^9.0.0
+  
+  # Google Maps
+  google_maps_flutter: ^2.5.0
+  geolocator: ^10.1.0
+  geocoding: ^2.1.1
+  
+  # Firebase - GÜNCEL VERSİYONLAR
+  firebase_core: ^2.27.0
+  firebase_messaging: ^14.7.19
+  flutter_local_notifications: ^16.3.2
+  
+  # WebSocket
+  web_socket_channel: ^2.4.0
+  
+  # Image işlemleri
+  image_picker: ^1.0.7
+  cached_network_image: ^3.3.0
+  
+  # Rating
+  flutter_rating_bar: ^4.0.1
+  
+  # İzinler
+  permission_handler: ^11.2.0
+  
+  # UI iyileştirmeleri
+  shimmer: ^3.0.0
+  lottie: ^2.7.0
+  
+  # State management
+  provider: ^6.1.1
+  
+  # Diğer yardımcı paketler
+  intl: ^0.19.0
+  path: ^1.8.3
+  shared_preferences: ^2.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
