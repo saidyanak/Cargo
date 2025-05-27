@@ -1,6 +1,11 @@
+import 'package:cargo_app/services/cargo_service.dart';
 import 'package:flutter/material.dart';
-import '../services/cargo_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/location_service.dart';
 import 'delivery_screen.dart';
+import '../utils/cargo_helper.dart';
+
 
 class CargoDetailScreen extends StatefulWidget {
   final Map<String, dynamic> cargo;
@@ -14,73 +19,141 @@ class CargoDetailScreen extends StatefulWidget {
 
 class _CargoDetailScreenState extends State<CargoDetailScreen> {
   late Map<String, dynamic> _cargo;
+  GoogleMapController? _mapController;
+  Set<Marker> _markers = {};
 
   @override
   void initState() {
     super.initState();
     _cargo = widget.cargo;
+    _setupMarkers();
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'CREATED':
-        return Colors.blue;
-      case 'ASSIGNED':
-        return Colors.orange;
-      case 'PICKED_UP':
-        return Colors.purple;
-      case 'DELIVERED':
-        return Colors.green;
-      case 'CANCELLED':
-      case 'FAILED':
-        return Colors.red;
-      case 'EXPIRED':
-        return Colors.grey;
-      default:
-        return Colors.blue;
+  void _setupMarkers() {
+    _markers.clear();
+    
+    // Alınacak konum marker'ı
+    final selfLat = _cargo['selfLocation']?['latitude'];
+    final selfLng = _cargo['selfLocation']?['longitude'];
+    if (selfLat != null && selfLng != null) {
+      _markers.add(
+        Marker(
+          markerId: MarkerId('pickup'),
+          position: LatLng(selfLat.toDouble(), selfLng.toDouble()),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+          infoWindow: InfoWindow(
+            title: 'Alınacak Konum',
+            snippet: _cargo['selfLocation']?['address'] ?? 'Adres bilgisi yok',
+          ),
+        ),
+      );
+    }
+
+    // Teslim edilecek konum marker'ı
+    final targetLat = _cargo['targetLocation']?['latitude'];
+    final targetLng = _cargo['targetLocation']?['longitude'];
+    if (targetLat != null && targetLng != null) {
+      _markers.add(
+        Marker(
+          markerId: MarkerId('delivery'),
+          position: LatLng(targetLat.toDouble(), targetLng.toDouble()),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          infoWindow: InfoWindow(
+            title: 'Teslim Konumu',
+            snippet: _cargo['targetLocation']?['address'] ?? 'Adres bilgisi yok',
+          ),
+        ),
+      );
     }
   }
 
-  String _getStatusText(String status) {
-    switch (status) {
-      case 'CREATED':
-        return 'Oluşturuldu';
-      case 'ASSIGNED':
-        return 'Atandı';
-      case 'PICKED_UP':
-        return 'Alındı';
-      case 'DELIVERED':
-        return 'Teslim Edildi';
-      case 'CANCELLED':
-        return 'İptal Edildi';
-      case 'FAILED':
-        return 'Başarısız';
-      case 'EXPIRED':
-        return 'Süresi Doldu';
-      default:
-        return status;
+  // Google Maps'te aç
+  Future<void> _openInGoogleMaps() async {
+    final selfLat = _cargo['selfLocation']?['latitude'];
+    final selfLng = _cargo['selfLocation']?['longitude'];
+    final targetLat = _cargo['targetLocation']?['latitude'];
+    final targetLng = _cargo['targetLocation']?['longitude'];
+
+    if (selfLat != null && selfLng != null && targetLat != null && targetLng != null) {
+      // Yön tarifi için Google Maps URL'i
+      final url = 'https://www.google.com/maps/dir/$selfLat,$selfLng/$targetLat,$targetLng';
+      
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Google Maps açılamadı'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
-  IconData _getStatusIcon(String status) {
-    switch (status) {
-      case 'CREATED':
-        return Icons.fiber_new;
-      case 'ASSIGNED':
-        return Icons.assignment;
-      case 'PICKED_UP':
-        return Icons.local_shipping;
-      case 'DELIVERED':
-        return Icons.check_circle;
-      case 'CANCELLED':
-        return Icons.cancel;
-      case 'FAILED':
-        return Icons.error;
-      case 'EXPIRED':
-        return Icons.access_time;
-      default:
-        return Icons.info;
+  // Apple Maps'te aç (iOS için)
+  Future<void> _openInAppleMaps() async {
+    final selfLat = _cargo['selfLocation']?['latitude'];
+    final selfLng = _cargo['selfLocation']?['longitude'];
+    final targetLat = _cargo['targetLocation']?['latitude'];
+    final targetLng = _cargo['targetLocation']?['longitude'];
+
+    if (selfLat != null && selfLng != null && targetLat != null && targetLng != null) {
+      // Apple Maps URL'i
+      final url = 'https://maps.apple.com/?saddr=$selfLat,$selfLng&daddr=$targetLat,$targetLng&dirflg=d';
+      
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      } else {
+        // Fallback olarak Google Maps'i dene
+        _openInGoogleMaps();
+      }
     }
+  }
+
+  // Harita seçenekleri dialog'u
+  void _showMapOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Harita Uygulaması Seç',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 20),
+            ListTile(
+              leading: Icon(Icons.map, color: Colors.blue),
+              title: Text('Google Maps'),
+              subtitle: Text('Yön tarifi için Google Maps\'i aç'),
+              onTap: () {
+                Navigator.pop(context);
+                _openInGoogleMaps();
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.map, color: Colors.grey[700]),
+              title: Text('Apple Maps'),
+              subtitle: Text('Yön tarifi için Apple Maps\'i aç'),
+              onTap: () {
+                Navigator.pop(context);
+                _openInAppleMaps();
+              },
+            ),
+            SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _takeCargo() async {
@@ -184,6 +257,234 @@ class _CargoDetailScreenState extends State<CargoDetailScreen> {
     );
   }
 
+  Widget _buildMapCard() {
+    final selfLat = _cargo['selfLocation']?['latitude'];
+    final selfLng = _cargo['selfLocation']?['longitude'];
+    final targetLat = _cargo['targetLocation']?['latitude'];
+    final targetLng = _cargo['targetLocation']?['longitude'];
+
+    if (selfLat == null || selfLng == null || targetLat == null || targetLng == null) {
+      return Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Icon(Icons.location_off, size: 64, color: Colors.grey[400]),
+              SizedBox(height: 16),
+              Text(
+                'Konum bilgisi mevcut değil',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Merkez nokta hesapla
+    final centerLat = (selfLat + targetLat) / 2;
+    final centerLng = (selfLng + targetLng) / 2;
+
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Kargo Rotası',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo,
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: _showMapOptions,
+                  icon: Icon(Icons.navigation, size: 16),
+                  label: Text('Yön Tarifi'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            height: 200,
+            child: ClipRRect(
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(12),
+                bottomRight: Radius.circular(12),
+              ),
+              child: GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: LatLng(centerLat, centerLng),
+                  zoom: 12,
+                ),
+                markers: _markers,
+                onMapCreated: (GoogleMapController controller) {
+                  _mapController = controller;
+                  
+                  // Haritayı tüm marker'ları gösterecek şekilde ayarla
+                  if (_markers.length > 1) {
+                    Future.delayed(Duration(milliseconds: 500), () {
+                      _fitMarkersInView();
+                    });
+                  }
+                },
+                myLocationEnabled: true,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                mapToolbarEnabled: false,
+              ),
+            ),
+          ),
+          
+          // Konum bilgileri
+          Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.location_on, color: Colors.green, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Alınacak Konum',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            _cargo['selfLocation']?['address'] ?? 
+                            '${selfLat.toStringAsFixed(6)}, ${selfLng.toStringAsFixed(6)}',
+                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(Icons.flag, color: Colors.red, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Teslim Konumu',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            _cargo['targetLocation']?['address'] ?? 
+                            '${targetLat.toStringAsFixed(6)}, ${targetLng.toStringAsFixed(6)}',
+                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                
+                // Mesafe bilgisi
+                FutureBuilder<double>(
+                  future: _calculateDistance(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData) {
+                      return Container(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.straighten, color: Colors.blue, size: 16),
+                            SizedBox(width: 4),
+                            Text(
+                              'Tahmini Mesafe: ${LocationService.formatDistance(snapshot.data!)}',
+                              style: TextStyle(
+                                color: Colors.blue,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    return SizedBox.shrink();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<double> _calculateDistance() async {
+    final selfLat = _cargo['selfLocation']?['latitude'];
+    final selfLng = _cargo['selfLocation']?['longitude'];
+    final targetLat = _cargo['targetLocation']?['latitude'];
+    final targetLng = _cargo['targetLocation']?['longitude'];
+
+    if (selfLat != null && selfLng != null && targetLat != null && targetLng != null) {
+      return LocationService.calculateDistance(
+        selfLat.toDouble(),
+        selfLng.toDouble(),
+        targetLat.toDouble(),
+        targetLng.toDouble(),
+      );
+    }
+    return 0.0;
+  }
+
+  void _fitMarkersInView() {
+    if (_mapController != null && _markers.length > 1) {
+      final bounds = _calculateBounds();
+      _mapController!.animateCamera(
+        CameraUpdate.newLatLngBounds(bounds, 100.0),
+      );
+    }
+  }
+
+  LatLngBounds _calculateBounds() {
+    final selfLat = _cargo['selfLocation']?['latitude'];
+    final selfLng = _cargo['selfLocation']?['longitude'];
+    final targetLat = _cargo['targetLocation']?['latitude'];
+    final targetLng = _cargo['targetLocation']?['longitude'];
+
+    final southwest = LatLng(
+      selfLat < targetLat ? selfLat.toDouble() : targetLat.toDouble(),
+      selfLng < targetLng ? selfLng.toDouble() : targetLng.toDouble(),
+    );
+    
+    final northeast = LatLng(
+      selfLat > targetLat ? selfLat.toDouble() : targetLat.toDouble(),
+      selfLng > targetLng ? selfLng.toDouble() : targetLng.toDouble(),
+    );
+
+    return LatLngBounds(southwest: southwest, northeast: northeast);
+  }
+
   Widget _buildStatusTimeline() {
     final status = _cargo['cargoSituation'] ?? 'CREATED';
     final statuses = [
@@ -204,53 +505,56 @@ class _CargoDetailScreenState extends State<CargoDetailScreen> {
         bool isCompleted = index <= currentIndex;
         bool isCurrent = index == currentIndex;
         
-        return Row(
-          children: [
-            // İkon
-            Container(
-              padding: EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: isCompleted ? Colors.green : Colors.grey[300],
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                statusInfo['icon'],
-                color: isCompleted ? Colors.white : Colors.grey[600],
-                size: 20,
-              ),
-            ),
-            SizedBox(width: 12),
-            
-            // Başlık
-            Expanded(
-              child: Text(
-                statusInfo['title'],
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                  color: isCompleted ? Colors.green : Colors.grey[600],
-                ),
-              ),
-            ),
-            
-            // Durum göstergesi
-            if (isCurrent)
+        return Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              // İkon
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: isCompleted ? Colors.green : Colors.grey[300],
+                  shape: BoxShape.circle,
                 ),
+                child: Icon(
+                  statusInfo['icon'],
+                  color: isCompleted ? Colors.white : Colors.grey[600],
+                  size: 20,
+                ),
+              ),
+              SizedBox(width: 12),
+              
+              // Başlık
+              Expanded(
                 child: Text(
-                  'Mevcut',
+                  statusInfo['title'],
                   style: TextStyle(
-                    color: Colors.blue,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                    color: isCompleted ? Colors.green : Colors.grey[600],
                   ),
                 ),
               ),
-          ],
+              
+              // Durum göstergesi
+              if (isCurrent)
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Mevcut',
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         );
       }).toList(),
     );
@@ -259,9 +563,8 @@ class _CargoDetailScreenState extends State<CargoDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final status = _cargo['cargoSituation'] ?? 'CREATED';
-    final statusColor = _getStatusColor(status);
-    final statusText = _getStatusText(status);
-    final statusIcon = _getStatusIcon(status);
+    final statusColor = CargoHelper.getStatusColor(status);
+    final statusText = CargoHelper.getStatusDisplayName(status);
 
     return Scaffold(
       appBar: AppBar(
@@ -290,7 +593,7 @@ class _CargoDetailScreenState extends State<CargoDetailScreen> {
                 ),
                 child: Column(
                   children: [
-                    Icon(statusIcon, size: 60, color: Colors.white),
+                    Icon(CargoHelper.getStatusIcon(status), size: 60, color: Colors.white),
                     SizedBox(height: 16),
                     Text(
                       statusText,
@@ -313,6 +616,10 @@ class _CargoDetailScreenState extends State<CargoDetailScreen> {
               ),
             ),
             SizedBox(height: 20),
+
+            // Harita kartı
+            _buildMapCard(),
+            SizedBox(height: 16),
 
             // Açıklama kartı
             _buildInfoCard(
@@ -355,7 +662,7 @@ class _CargoDetailScreenState extends State<CargoDetailScreen> {
                             Icon(Icons.scale, color: Colors.orange),
                             SizedBox(height: 4),
                             Text(
-                              '${_cargo['measure']?['weight'] ?? 0} kg',
+                              CargoHelper.formatWeight(_cargo['measure']?['weight']),
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -371,7 +678,7 @@ class _CargoDetailScreenState extends State<CargoDetailScreen> {
                             Icon(Icons.straighten, color: Colors.purple),
                             SizedBox(height: 4),
                             Text(
-                              '${_cargo['measure']?['height'] ?? 0} cm',
+                              CargoHelper.formatHeight(_cargo['measure']?['height']),
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -387,7 +694,7 @@ class _CargoDetailScreenState extends State<CargoDetailScreen> {
                             Icon(Icons.aspect_ratio, color: Colors.red),
                             SizedBox(height: 4),
                             Text(
-                              _cargo['measure']?['size'] ?? 'M',
+                              CargoHelper.getSizeDisplayName(_cargo['measure']?['size']),
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -402,85 +709,6 @@ class _CargoDetailScreenState extends State<CargoDetailScreen> {
                 ],
               ),
               color: Colors.orange,
-            ),
-            SizedBox(height: 16),
-
-            // Konum bilgileri
-            _buildInfoCard(
-              'Konum Bilgileri',
-              Column(
-                children: [
-                  // Alınacak konum
-                  Container(
-                    padding: EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.location_on, color: Colors.green),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Alınacak Konum',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                'Enlem: ${_cargo['selfLocation']?['latitude']?.toStringAsFixed(6) ?? 'N/A'}',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                              Text(
-                                'Boylam: ${_cargo['selfLocation']?['longitude']?.toStringAsFixed(6) ?? 'N/A'}',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 12),
-                  
-                  // Teslim edilecek konum
-                  Container(
-                    padding: EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.flag, color: Colors.red),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Teslim Edilecek Konum',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                'Enlem: ${_cargo['targetLocation']?['latitude']?.toStringAsFixed(6) ?? 'N/A'}',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                              Text(
-                                'Boylam: ${_cargo['targetLocation']?['longitude']?.toStringAsFixed(6) ?? 'N/A'}',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              color: Colors.indigo,
             ),
             SizedBox(height: 16),
 

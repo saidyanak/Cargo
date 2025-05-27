@@ -1,5 +1,11 @@
+import 'package:cargo_app/utils/cargo_helper.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../services/cargo_service.dart';
+import '../services/location_service.dart';
+import 'map_selection_screen.dart';
+
 
 class AddCargoScreen extends StatefulWidget {
   @override
@@ -12,18 +18,186 @@ class _AddCargoScreenState extends State<AddCargoScreen> {
   final _phoneController = TextEditingController();
   final _weightController = TextEditingController();
   final _heightController = TextEditingController();
-  final _selfLatController = TextEditingController();
-  final _selfLngController = TextEditingController();
-  final _targetLatController = TextEditingController();
-  final _targetLngController = TextEditingController();
   
   String _selectedSize = 'M';
   bool _isLoading = false;
 
+  // Konum bilgileri
+  double? _selfLatitude;
+  double? _selfLongitude;
+  String? _selfAddress;
+  
+  double? _targetLatitude;
+  double? _targetLongitude;
+  String? _targetAddress;
+
   final List<String> _sizeOptions = ['S', 'M', 'L', 'XL', 'XXL'];
+
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentLocationAutomatically();
+  }
+
+  Future<void> _getCurrentLocationAutomatically() async {
+  try {
+    final position = await LocationService.getCurrentLocation();
+    if (position != null) {
+      setState(() {
+        _selfLatitude = position.latitude;
+        _selfLongitude = position.longitude;
+      });
+      
+      // Adres almayı ayrı try-catch'e al
+      try {
+        final address = await LocationService.getAddressFromCoordinates(
+          position.latitude, 
+          position.longitude,
+        );
+        
+        setState(() {
+          _selfAddress = address;
+        });
+      } catch (e) {
+        print('Adres alma hatası: $e');
+        setState(() {
+          _selfAddress = 'Koordinatlar: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+        });
+      }
+    }
+  } catch (e) {
+    print('Otomatik konum alma hatası: $e');
+  }
+}
+
+Future<void> _getCurrentLocation(bool isPickup) async {
+  setState(() {
+    _isLoading = true;
+  });
+
+  try {
+    final position = await LocationService.getCurrentLocation();
+    if (position != null) {
+      // Önce koordinatları kaydet
+      setState(() {
+        if (isPickup) {
+          _selfLatitude = position.latitude;
+          _selfLongitude = position.longitude;
+        } else {
+          _targetLatitude = position.latitude;
+          _targetLongitude = position.longitude;
+        }
+      });
+
+      // Adres çevirmeyi ayrı try-catch'e al
+      String address;
+      try {
+        address = await LocationService.getAddressFromCoordinates(
+          position.latitude, 
+          position.longitude,
+        );
+      } catch (e) {
+        print('Adres çevirme hatası: $e');
+        address = 'Koordinatlar: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+      }
+      
+      setState(() {
+        if (isPickup) {
+          _selfAddress = address;
+        } else {
+          _targetAddress = address;
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Konum başarıyla alındı!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      _showErrorDialog('Konum alınamadı. Lütfen konum izinlerini kontrol edin.');
+    }
+  } catch (e) {
+    _showErrorDialog('Konum alma hatası: $e');
+  } finally {
+    setState(() {
+      _isLoading = false;
+    });
+  }
+}
+
+  // Harita üzerinden konum seç
+  Future<void> _selectLocationOnMap(bool isPickup) async {
+    final initialLocation = isPickup
+        ? (_selfLatitude != null && _selfLongitude != null
+            ? LatLng(_selfLatitude!, _selfLongitude!)
+            : null)
+        : (_targetLatitude != null && _targetLongitude != null
+            ? LatLng(_targetLatitude!, _targetLongitude!)
+            : null);
+
+    final selectedLocation = await Navigator.push<LatLng>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MapSelectionScreen(
+          initialLocation: initialLocation,
+          title: isPickup ? 'Alınacak Konumu Seç' : 'Teslim Konumunu Seç',
+        ),
+      ),
+    );
+
+    if (selectedLocation != null) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final address = await LocationService.getAddressFromCoordinates(
+          selectedLocation.latitude,
+          selectedLocation.longitude,
+        );
+
+        setState(() {
+          if (isPickup) {
+            _selfLatitude = selectedLocation.latitude;
+            _selfLongitude = selectedLocation.longitude;
+            _selfAddress = address;
+          } else {
+            _targetLatitude = selectedLocation.latitude;
+            _targetLongitude = selectedLocation.longitude;
+            _targetAddress = address;
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Konum seçildi!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        _showErrorDialog('Adres bilgisi alınamadı: $e');
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   Future<void> _addCargo() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_selfLatitude == null || _selfLongitude == null) {
+      _showErrorDialog('Lütfen alınacak konumu seçin.');
+      return;
+    }
+
+    if (_targetLatitude == null || _targetLongitude == null) {
+      _showErrorDialog('Lütfen teslim konumunu seçin.');
       return;
     }
 
@@ -34,14 +208,16 @@ class _AddCargoScreenState extends State<AddCargoScreen> {
     try {
       final result = await CargoService.addCargo(
         description: _descriptionController.text.trim(),
-        selfLatitude: double.parse(_selfLatController.text),
-        selfLongitude: double.parse(_selfLngController.text),
-        targetLatitude: double.parse(_targetLatController.text),
-        targetLongitude: double.parse(_targetLngController.text),
+        selfLatitude: _selfLatitude!,
+        selfLongitude: _selfLongitude!,
+        targetLatitude: _targetLatitude!,
+        targetLongitude: _targetLongitude!,
         weight: double.parse(_weightController.text),
         height: double.parse(_heightController.text),
         size: _selectedSize,
         phoneNumber: _phoneController.text.trim(),
+        selfAddress: _selfAddress,
+        targetAddress: _targetAddress,
       );
 
       if (result != null) {
@@ -51,7 +227,7 @@ class _AddCargoScreenState extends State<AddCargoScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context, true); // true ile geri dön (yenileme için)
+        Navigator.pop(context, true);
       } else {
         _showErrorDialog('Kargo eklenirken bir hata oluştu.');
       }
@@ -80,20 +256,122 @@ class _AddCargoScreenState extends State<AddCargoScreen> {
     );
   }
 
-  void _getCurrentLocation() {
-    // Bu fonksiyon gerçek uygulamada location servisi kullanarak mevcut konumu alır
-    // Şimdilik örnek değerler veriyoruz
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Konum Alma'),
-        content: Text('Bu özellik henüz aktif değil. Lütfen koordinatları manuel olarak girin.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Tamam'),
-          ),
-        ],
+  Widget _buildLocationCard({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required bool isPickup,
+    required double? latitude,
+    required double? longitude,
+    required String? address,
+  }) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 24),
+                SizedBox(width: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 16),
+            
+            // Seçilen konum bilgisi
+            if (latitude != null && longitude != null) ...[
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.check_circle, color: color, size: 16),
+                        SizedBox(width: 4),
+                        Text(
+                          'Konum Seçildi',
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    if (address != null) ...[
+                      Text(
+                        address,
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      SizedBox(height: 4),
+                    ],
+                    Text(
+                      'Koordinatlar: ${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 12),
+            ],
+            
+            // Butonlar
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : () => _getCurrentLocation(isPickup),
+                    icon: Icon(Icons.my_location, size: 16),
+                    label: Text('Mevcut Konum'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: color,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoading ? null : () => _selectLocationOnMap(isPickup),
+                    icon: Icon(Icons.map, size: 16),
+                    label: Text('Haritadan Seç'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: color,
+                      side: BorderSide(color: color),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -278,7 +556,7 @@ class _AddCargoScreenState extends State<AddCargoScreen> {
                           items: _sizeOptions.map((size) {
                             return DropdownMenuItem(
                               value: size,
-                              child: Text(size),
+                              child: Text(CargoHelper.getSizeDisplayName(size)),
                             );
                           }).toList(),
                           onChanged: (value) {
@@ -294,165 +572,27 @@ class _AddCargoScreenState extends State<AddCargoScreen> {
               ),
               SizedBox(height: 16),
               
-              // Başlangıç konumu kartı
-              Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Alınacak Konum',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green[800],
-                            ),
-                          ),
-                          TextButton.icon(
-                            onPressed: _getCurrentLocation,
-                            icon: Icon(Icons.my_location),
-                            label: Text('Mevcut Konum'),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 16),
-                      
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _selfLatController,
-                              keyboardType: TextInputType.numberWithOptions(decimal: true, signed: true),
-                              decoration: InputDecoration(
-                                labelText: 'Enlem (Latitude)',
-                                prefixIcon: Icon(Icons.location_on),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Enlem boş bırakılamaz';
-                                }
-                                if (double.tryParse(value) == null) {
-                                  return 'Geçerli bir sayı girin';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _selfLngController,
-                              keyboardType: TextInputType.numberWithOptions(decimal: true, signed: true),
-                              decoration: InputDecoration(
-                                labelText: 'Boylam (Longitude)',
-                                prefixIcon: Icon(Icons.location_on),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Boylam boş bırakılamaz';
-                                }
-                                if (double.tryParse(value) == null) {
-                                  return 'Geçerli bir sayı girin';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+              // Alınacak konum kartı
+              _buildLocationCard(
+                title: 'Alınacak Konum',
+                icon: Icons.location_on,
+                color: Colors.green,
+                isPickup: true,
+                latitude: _selfLatitude,
+                longitude: _selfLongitude,
+                address: _selfAddress,
               ),
               SizedBox(height: 16),
               
-              // Hedef konum kartı
-              Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Teslim Edilecek Konum',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red[800],
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _targetLatController,
-                              keyboardType: TextInputType.numberWithOptions(decimal: true, signed: true),
-                              decoration: InputDecoration(
-                                labelText: 'Enlem (Latitude)',
-                                prefixIcon: Icon(Icons.flag),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Enlem boş bırakılamaz';
-                                }
-                                if (double.tryParse(value) == null) {
-                                  return 'Geçerli bir sayı girin';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _targetLngController,
-                              keyboardType: TextInputType.numberWithOptions(decimal: true, signed: true),
-                              decoration: InputDecoration(
-                                labelText: 'Boylam (Longitude)',
-                                prefixIcon: Icon(Icons.flag),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Boylam boş bırakılamaz';
-                                }
-                                if (double.tryParse(value) == null) {
-                                  return 'Geçerli bir sayı girin';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+              // Teslim edilecek konum kartı
+              _buildLocationCard(
+                title: 'Teslim Edilecek Konum',
+                icon: Icons.flag,
+                color: Colors.red,
+                isPickup: false,
+                latitude: _targetLatitude,
+                longitude: _targetLongitude,
+                address: _targetAddress,
               ),
               SizedBox(height: 24),
               
@@ -494,10 +634,6 @@ class _AddCargoScreenState extends State<AddCargoScreen> {
     _phoneController.dispose();
     _weightController.dispose();
     _heightController.dispose();
-    _selfLatController.dispose();
-    _selfLngController.dispose();
-    _targetLatController.dispose();
-    _targetLngController.dispose();
     super.dispose();
   }
 }

@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import 'available_cargoes_screen.dart';
 import 'my_cargoes_screen.dart';
 import 'profile_screen.dart';
+import '../utils/cargo_helper.dart';
 
 class DriverHomeScreen extends StatefulWidget {
   @override
@@ -14,6 +15,7 @@ class DriverHomeScreen extends StatefulWidget {
 class _DriverHomeScreenState extends State<DriverHomeScreen> {
   int _currentIndex = 0;
   String? _username;
+  String? _email;
   List<Map<String, dynamic>> _myCargoes = [];
   List<Map<String, dynamic>> _availableCargoes = [];
   final _secureStorage = FlutterSecureStorage();
@@ -28,49 +30,86 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
   Future<void> _loadUserInfo() async {
     try {
-      final token = await _secureStorage.read(key: 'auth_token');
-      if (token != null) {
-        final name = await AuthService.getNameFromToken(token);
-        setState(() {
-          _username = name ?? 'Sürücü';
-        });
-      }
+      // Güncellenmiş AuthService metodlarını kullan
+      final userData = await AuthService.getUserData();
+      
+      setState(() {
+        _username = userData['username'] ?? 'Sürücü';
+        _email = userData['email'];
+      });
+      
+      print('Kullanıcı bilgileri yüklendi: $_username');
     } catch (e) {
-      print('Error loading user info: $e');
+      print('Kullanıcı bilgisi yükleme hatası: $e');
+      setState(() {
+        _username = 'Sürücü';
+      });
     }
   }
 
   Future<void> _loadCargoes() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
     try {
-      // Kendi kargolarını yükle
-      final myCargoesResult = await CargoService.getDriverCargoes(page: 0, size: 5);
+      print('=== KARGO VERİLERİ YÜKLENİYOR ===');
+      
+      // Kendi kargolarımı yükle - daha fazla göster
+      final myCargoesResult = await CargoService.getDriverCargoes(page: 0, size: 10);
+      print('Aldığım kargolar sonucu: $myCargoesResult');
+      
       if (myCargoesResult != null) {
-        final List<dynamic> myCargoList = myCargoesResult['data'] ?? [];
+        List<dynamic> myCargoList = [];
+        
+        // Response yapısını kontrol et
+        if (myCargoesResult.containsKey('data') && myCargoesResult['data'] is List) {
+          myCargoList = myCargoesResult['data'] as List<dynamic>;
+        } else if (myCargoesResult is List) {
+          myCargoList = myCargoesResult as List<dynamic>;
+        } else if (myCargoesResult.containsKey('content') && myCargoesResult['content'] is List) {
+          myCargoList = myCargoesResult['content'] as List<dynamic>;
+        }
+        
+        print('Aldığım kargo sayısı: ${myCargoList.length}');
+        
         setState(() {
           _myCargoes = myCargoList.cast<Map<String, dynamic>>();
         });
       }
 
       // Mevcut kargoları yükle
-      final availableCargoesResult = await CargoService.getAllCargoes(page: 0, size: 10);
+      final availableCargoesResult = await CargoService.getAllCargoes(page: 0, size: 15);
+      print('Mevcut kargolar sonucu: $availableCargoesResult');
+      
       if (availableCargoesResult != null) {
-        final List<dynamic> allCargoList = availableCargoesResult['data'] ?? [];
+        List<dynamic> allCargoList = [];
+        
+        // Response yapısını kontrol et
+        if (availableCargoesResult.containsKey('data') && availableCargoesResult['data'] is List) {
+          allCargoList = availableCargoesResult['data'] as List<dynamic>;
+        } else if (availableCargoesResult is List) {
+          allCargoList = availableCargoesResult as List<dynamic>;
+        } else if (availableCargoesResult.containsKey('content') && availableCargoesResult['content'] is List) {
+          allCargoList = availableCargoesResult['content'] as List<dynamic>;
+        }
+        
         // Sadece oluşturulmuş kargoları filtrele
         final availableCargoes = allCargoList
             .where((cargo) => cargo['cargoSituation'] == 'CREATED')
-            .take(5)
+            .take(8) // Daha fazla göster
             .toList();
+        
+        print('Mevcut kargo sayısı: ${availableCargoes.length}');
         
         setState(() {
           _availableCargoes = availableCargoes.cast<Map<String, dynamic>>();
         });
       }
 
-      setState(() {
-        _isLoading = false;
-      });
     } catch (e) {
-      print('Error loading cargoes: $e');
+      print('Kargo yükleme hatası: $e');
+    } finally {
       setState(() {
         _isLoading = false;
       });
@@ -86,19 +125,29 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Çıkış Yap'),
+        title: Row(
+          children: [
+            Icon(Icons.logout, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Çıkış Yap'),
+          ],
+        ),
         content: Text('Hesabınızdan çıkış yapmak istediğinizden emin misiniz?'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text('İptal'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               _logout();
             },
-            child: Text('Çıkış Yap', style: TextStyle(color: Colors.red)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: Text('Çıkış Yap', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -106,19 +155,74 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   }
 
   Future<void> _takeCargo(int cargoId) async {
-    final success = await CargoService.takeCargo(cargoId);
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Kargo başarıyla alındı!'),
-          backgroundColor: Colors.green,
+    // Loading göster
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Kargo alınıyor...'),
+              ],
+            ),
+          ),
         ),
-      );
-      _loadCargoes(); // Listeyi yenile
-    } else {
+      ),
+    );
+    
+    try {
+      final success = await CargoService.takeCargo(cargoId);
+      Navigator.pop(context); // Loading dialog'u kapat
+      
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Kargo başarıyla alındı!'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+        
+        // Verileri yenile
+        await _loadCargoes();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Kargo alınırken hata oluştu!'),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Kargo alınırken hata oluştu!'),
+          content: Text('Bir hata oluştu: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -129,20 +233,72 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Kargo Al'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
           children: [
-            Text('Bu kargoyu almak istediğinizden emin misiniz?'),
-            SizedBox(height: 12),
-            Text(
-              'Açıklama: ${cargo['description'] ?? 'Açıklama yok'}',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text('Ağırlık: ${CargoHelper.formatWeight(cargo['measure']?['weight'])}'),
-            Text('Telefon: ${cargo['phoneNumber'] ?? ''}'),
+            Icon(Icons.local_shipping, color: Colors.green),
+            SizedBox(width: 8),
+            Text('Kargo Al'),
           ],
+        ),
+        content: Container(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Bu kargoyu almak istediğinizden emin misiniz?'),
+              SizedBox(height: 16),
+              
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.description, size: 16, color: Colors.blue),
+                        SizedBox(width: 4),
+                        Text('Açıklama:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    Text(cargo['description'] ?? 'Açıklama yok'),
+                    SizedBox(height: 8),
+                    
+                    Row(
+                      children: [
+                        Icon(Icons.scale, size: 16, color: Colors.orange),
+                        SizedBox(width: 4),
+                        Text('Ağırlık: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(CargoHelper.formatWeight(cargo['measure']?['weight'])),
+                        SizedBox(width: 16),
+                        Icon(Icons.aspect_ratio, size: 16, color: Colors.purple),
+                        SizedBox(width: 4),
+                        Text('Boyut: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(CargoHelper.getSizeDisplayName(cargo['measure']?['size'])),
+                      ],
+                    ),
+                    SizedBox(height: 4),
+                    
+                    Row(
+                      children: [
+                        Icon(Icons.phone, size: 16, color: Colors.green),
+                        SizedBox(width: 4),
+                        Text('Telefon: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(cargo['phoneNumber'] ?? ''),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
         actions: [
           TextButton(
@@ -165,8 +321,10 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   Widget _buildHomeTab() {
     return RefreshIndicator(
       onRefresh: () async {
-        await _loadCargoes();
-        await _loadUserInfo();
+        await Future.wait([
+          _loadCargoes(),
+          _loadUserInfo(),
+        ]);
       },
       child: SingleChildScrollView(
         physics: AlwaysScrollableScrollPhysics(),
@@ -192,13 +350,16 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                 ),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundColor: Colors.white,
-                      child: Icon(
-                        Icons.local_shipping,
-                        size: 35,
-                        color: Colors.green[600],
+                    Hero(
+                      tag: 'driver_avatar',
+                      child: CircleAvatar(
+                        radius: 30,
+                        backgroundColor: Colors.white,
+                        child: Icon(
+                          Icons.local_shipping,
+                          size: 35,
+                          color: Colors.green[600],
+                        ),
                       ),
                     ),
                     SizedBox(width: 16),
@@ -221,6 +382,14 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                               color: Colors.white,
                             ),
                           ),
+                          if (_email != null)
+                            Text(
+                              _email!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white60,
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -298,7 +467,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             ),
             SizedBox(height: 24),
             
-            // Mevcut kargolar
+            // Mevcut kargolar başlığı
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -310,19 +479,40 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                     color: Colors.grey[800],
                   ),
                 ),
-                TextButton(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => AvailableCargoesScreen()),
-                  ),
-                  child: Text('Tümünü Gör'),
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: _loadCargoes,
+                      icon: Icon(Icons.refresh, color: Colors.blue),
+                      tooltip: 'Yenile',
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => AvailableCargoesScreen()),
+                      ),
+                      child: Text('Tümünü Gör'),
+                    ),
+                  ],
                 ),
               ],
             ),
             SizedBox(height: 12),
             
+            // Kargo listesi
             _isLoading
-                ? Center(child: CircularProgressIndicator())
+                ? Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Column(
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('Kargolar yükleniyor...'),
+                        ],
+                      ),
+                    ),
+                  )
                 : _availableCargoes.isEmpty
                     ? Card(
                         child: Padding(
@@ -341,6 +531,12 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                                   fontSize: 16,
                                   color: Colors.grey[600],
                                 ),
+                              ),
+                              SizedBox(height: 8),
+                              ElevatedButton.icon(
+                                onPressed: _loadCargoes,
+                                icon: Icon(Icons.refresh),
+                                label: Text('Yenile'),
                               ),
                             ],
                           ),
@@ -361,36 +557,52 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Container(
-              padding: EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                shape: BoxShape.circle,
+      child: InkWell(
+        onTap: () {
+          if (title.contains('Aldığım')) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => MyCargoesScreen()),
+            );
+          } else {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => AvailableCargoesScreen()),
+            );
+          }
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 24, color: color),
               ),
-              child: Icon(icon, size: 24, color: color),
-            ),
-            SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: color,
+              SizedBox(height: 8),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
-            ),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -437,82 +649,92 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
       margin: EdgeInsets.only(bottom: 12),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    cargo['description'] ?? 'Açıklama yok',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () => _showTakeCargoDialog(cargo),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                  child: Text('Al', style: TextStyle(fontSize: 12)),
-                ),
-              ],
-            ),
-            SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(Icons.phone, size: 16, color: Colors.grey[600]),
-                SizedBox(width: 4),
-                Text(
-                  cargo['phoneNumber'] ?? '',
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-                Spacer(),
-                Icon(Icons.scale, size: 16, color: Colors.grey[600]),
-                SizedBox(width: 4),
-                Text(
-                  CargoHelper.formatWeight(cargo['measure']?['weight']),
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-              ],
-            ),
-            SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.straighten, size: 16, color: Colors.grey[600]),
-                SizedBox(width: 4),
-                Text(
-                  CargoHelper.formatHeight(cargo['measure']?['height']),
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-                Spacer(),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    CargoHelper.getSizeDisplayName(cargo['measure']?['size']),
-                    style: TextStyle(
-                      color: Colors.blue,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+      child: InkWell(
+        onTap: () => _showTakeCargoDialog(cargo),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      cargo['description'] ?? 'Açıklama yok',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'AL',
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(Icons.phone, size: 16, color: Colors.grey[600]),
+                  SizedBox(width: 4),
+                  Text(
+                    cargo['phoneNumber'] ?? '',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  Spacer(),
+                  Icon(Icons.scale, size: 16, color: Colors.grey[600]),
+                  SizedBox(width: 4),
+                  Text(
+                    CargoHelper.formatWeight(cargo['measure']?['weight']),
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.straighten, size: 16, color: Colors.grey[600]),
+                  SizedBox(width: 4),
+                  Text(
+                    CargoHelper.formatHeight(cargo['measure']?['height']),
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  Spacer(),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      CargoHelper.getSizeDisplayName(cargo['measure']?['size']),
+                      style: TextStyle(
+                        color: Colors.blue,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -522,14 +744,20 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Sürücü'),
+        title: Text('Sürücü Paneli'),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
           IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: _loadCargoes,
+            tooltip: 'Verileri Yenile',
+          ),
+          IconButton(
             icon: Icon(Icons.logout),
             onPressed: _showLogoutDialog,
+            tooltip: 'Çıkış Yap',
           ),
         ],
       ),

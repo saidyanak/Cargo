@@ -71,40 +71,59 @@ class LocationService {
   }
 
   // Koordinatlardan adres al
-  static Future<String> getAddressFromCoordinates(double latitude, double longitude) async {
-    try {
-      final placemarks = await placemarkFromCoordinates(latitude, longitude);
-      if (placemarks.isNotEmpty) {
-        final place = placemarks.first;
-        
-        // Adres bilgilerini birleştir
-        final addressParts = <String>[];
-        
-        if (place.street != null && place.street!.isNotEmpty) {
-          addressParts.add(place.street!);
-        }
-        if (place.subLocality != null && place.subLocality!.isNotEmpty) {
-          addressParts.add(place.subLocality!);
-        }
-        if (place.locality != null && place.locality!.isNotEmpty) {
-          addressParts.add(place.locality!);
-        }
-        if (place.administrativeArea != null && place.administrativeArea!.isNotEmpty) {
-          addressParts.add(place.administrativeArea!);
-        }
-        if (place.country != null && place.country!.isNotEmpty) {
-          addressParts.add(place.country!);
-        }
-        
-        final address = addressParts.join(', ');
-        return address.isNotEmpty ? address : 'Adres bilgisi bulunamadı';
+static Future<String> getAddressFromCoordinates(double latitude, double longitude) async {
+  try {
+    print('Adres çevirme başlatılıyor: $latitude, $longitude');
+    
+    List<Placemark> placemarks = await placemarkFromCoordinates(latitude, longitude);
+    print('Placemark sayısı: ${placemarks.length}');
+    
+    if (placemarks.isNotEmpty) {
+      Placemark place = placemarks.first;
+      print('Placemark detayları: ${place.toString()}');
+      
+      // Güvenli adres oluşturma
+      List<String> addressParts = [];
+      
+      if (place.name != null && place.name!.isNotEmpty) {
+        addressParts.add(place.name!);
       }
-      return 'Adres bulunamadı';
-    } catch (e) {
-      print('Adres çevirme hatası: $e');
-      return 'Adres alınamadı';
+      if (place.street != null && place.street!.isNotEmpty) {
+        addressParts.add(place.street!);
+      }
+      if (place.subLocality != null && place.subLocality!.isNotEmpty) {
+        addressParts.add(place.subLocality!);
+      }
+      if (place.locality != null && place.locality!.isNotEmpty) {
+        addressParts.add(place.locality!);
+      }
+      if (place.administrativeArea != null && place.administrativeArea!.isNotEmpty) {
+        addressParts.add(place.administrativeArea!);
+      }
+      if (place.country != null && place.country!.isNotEmpty) {
+        addressParts.add(place.country!);
+      }
+      
+      if (addressParts.isNotEmpty) {
+        String address = addressParts.join(', ');
+        print('Oluşturulan adres: $address');
+        return address;
+      }
     }
+    
+    // Fallback
+    String fallbackAddress = 'Konum: ${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
+    print('Fallback adres kullanılıyor: $fallbackAddress');
+    return fallbackAddress;
+    
+  } catch (e) {
+    print('Adres çevirme hatası detayı: $e');
+    print('Hata tipi: ${e.runtimeType}');
+    
+    // Güvenli fallback
+    return 'Konum: ${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
   }
+}
 
   // Adresten koordinatlar al
   static Future<List<Location>> getCoordinatesFromAddress(String address) async {

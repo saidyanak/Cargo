@@ -1,149 +1,68 @@
 import 'dart:convert';
+import 'dart:math' as Math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../utils/cargo_helper.dart';
 
 class CargoService {
+  // BACKEND URL'İNİ DEĞİŞTİRİN!
+  // Android Emulator için:
+  //static const String _baseUrl = 'http://10.0.2.2:8080';
+  // Gerçek cihaz için (IP'nizi yazın):
+  // static const String _baseUrl = 'http://192.168.1.XXX:8080';
+  // Web için:
   static const String _baseUrl = 'http://localhost:8080';
+  
   static final _secureStorage = FlutterSecureStorage();
 
   // Token'ı header'a eklemek için yardımcı method
   static Future<Map<String, String>> _getAuthHeaders() async {
     final token = await _secureStorage.read(key: 'auth_token');
+    
+    print('=== AUTH HEADERS ===');
+    print('Token exists: ${token != null}');
+    if (token != null) {
+      print('Token preview: ${token.substring(0, Math.min(20, token.length))}...');
+    }
+    print('==================');
+    
+    if (token == null) {
+      throw Exception('Token bulunamadı - Lütfen yeniden giriş yapın');
+    }
+    
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
     };
   }
 
-  // DRIVER İŞLEMLERİ
-
-  // Driver'ın aldığı kargoları getirme (Kargolarım)
-  static Future<Map<String, dynamic>?> getDriverCargoes({
-    int page = 0,
-    int size = 10,
-    String sortBy = 'id',
-  }) async {
-    try {
-      final headers = await _getAuthHeaders();
-      final response = await http.get(
-        Uri.parse('$_baseUrl/driver/getMyCargoes?page=$page&size=$size&sortBy=$sortBy'),
-        headers: headers,
-      );
-
-      print('Get driver cargoes response: ${response.statusCode}');
-      print('Response body: ${response.body}');
-      
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      }
-      return null;
-    } catch (e) {
-      print('Error getting driver cargoes: $e');
-      return null;
-    }
-  }
-
-  // Tüm kargoları getirme (Driver için - Mevcut Kargolar)
-  static Future<Map<String, dynamic>?> getAllCargoes({
-    int page = 0,
-    int size = 10,
-    String sortBy = 'id',
-  }) async {
-    try {
-      final headers = await _getAuthHeaders();
-      final response = await http.get(
-        Uri.parse('$_baseUrl/driver/getAllCargoes?page=$page&size=$size&sortBy=$sortBy'),
-        headers: headers,
-      );
-
-      print('Get all cargoes response: ${response.statusCode}');
-      print('Response body: ${response.body}');
-      
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      }
-      return null;
-    } catch (e) {
-      print('Error getting all cargoes: $e');
-      return null;
-    }
-  }
-
-  // Kargo alma (Driver)
-  static Future<bool> takeCargo(int cargoId) async {
-    try {
-      final headers = await _getAuthHeaders();
-      final response = await http.post(
-        Uri.parse('$_baseUrl/driver/takeCargo/$cargoId'),
-        headers: headers,
-      );
-
-      print('Take cargo response: ${response.statusCode}');
-      print('Response body: ${response.body}');
-      
-      return response.statusCode == 200 && json.decode(response.body) == true;
-    } catch (e) {
-      print('Error taking cargo: $e');
-      return false;
-    }
-  }
-
-  // Kargo teslim etme (Driver)
-  static Future<bool> deliverCargo(int cargoId, String deliveryCode) async {
-    try {
-      final headers = await _getAuthHeaders();
-      final response = await http.post(
-        Uri.parse('$_baseUrl/driver/deliverCargo/$cargoId/$deliveryCode'),
-        headers: headers,
-      );
-
-      print('Deliver cargo response: ${response.statusCode}');
-      print('Response body: ${response.body}');
-      
-      return response.statusCode == 200 && json.decode(response.body) == true;
-    } catch (e) {
-      print('Error delivering cargo: $e');
-      return false;
-    }
-  }
-
-  // Driver bilgilerini güncelleme
-  static Future<Map<String, dynamic>?> updateDriver({
-    required String username,
-    required String carType,
-    required String phoneNumber,
-    required String mail,
-    required String password,
-  }) async {
-    try {
-      final headers = await _getAuthHeaders();
-      final response = await http.post(
-        Uri.parse('$_baseUrl/driver/updateDriver'),
-        headers: headers,
-        body: json.encode({
-          'username': username,
-          'carType': carType,
-          'phoneNumber': phoneNumber,
-          'mail': mail,
-          'password': password.isEmpty ? null : password,
-        }),
-      );
-
-      print('Update driver response: ${response.statusCode}');
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      }
-      return null;
-    } catch (e) {
-      print('Error updating driver: $e');
-      return null;
+  // HTTP hata yönetimi
+  static void _handleHttpError(http.Response response, String operation) {
+    print('=== HTTP ERROR ===');
+    print('Operation: $operation');
+    print('Status: ${response.statusCode}');
+    print('Response: ${response.body}');
+    print('==================');
+    
+    switch (response.statusCode) {
+      case 401:
+        throw Exception('Oturum süresi doldu - Yeniden giriş yapın');
+      case 403:
+        throw Exception('Bu işlem için yetkiniz yok');
+      case 404:
+        throw Exception('Endpoint bulunamadı');
+      case 500:
+        throw Exception('Sunucu hatası');
+      default:
+        throw Exception('HTTP Hatası: ${response.statusCode}');
     }
   }
 
   // DISTRIBUTOR İŞLEMLERİ
 
-  // Distributor'ın kargolarını getirme
+  // Distributor'ın kargolarını getirme - SWAGGER'A UYGUN
   static Future<Map<String, dynamic>?> getDistributorCargoes({
     int page = 0,
     int size = 10,
@@ -151,82 +70,95 @@ class CargoService {
   }) async {
     try {
       final headers = await _getAuthHeaders();
-      print('=== DISTRIBUTOR CARGOES REQUEST ===');
-      print('URL: $_baseUrl/distributor/getMyCargoes?page=$page&size=$size&sortBy=$sortBy');
-      print('Headers: $headers');
+      final url = '$_baseUrl/distributor/getMyCargoes?page=$page&size=$size&sortBy=$sortBy';
+      
+      print('=== DISTRIBUTOR REQUEST ===');
+      print('URL: $url');
       
       final response = await http.get(
-        Uri.parse('$_baseUrl/distributor/getMyCargoes?page=$page&size=$size&sortBy=$sortBy'),
+        Uri.parse(url),
         headers: headers,
-      );
+      ).timeout(Duration(seconds: 10));
 
-      print('Get distributor cargoes response: ${response.statusCode}');
-      print('Response body: ${response.body}');
-      print('Response headers: ${response.headers}');
+      print('Response Status: ${response.statusCode}');
+      print('Response Body: ${response.body}');
       
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
-        print('Parsed response data: $responseData');
-        return responseData;
+        print('Parsed Response: $responseData');
+        
+        // Swagger'a göre backend direkt object döndürüyor
+        // Spring Boot Page yapısını kontrol edelim
+        if (responseData is Map<String, dynamic>) {
+          // Spring Boot Page format: {content: [], pageable: {}, totalElements: 0, ...}
+          if (responseData.containsKey('content')) {
+            print('Spring Boot Page format detected');
+            return {
+              'data': responseData['content'],
+              'meta': {
+                'isLast': responseData['last'] ?? true,
+                'totalElements': responseData['totalElements'] ?? 0,
+                'currentPage': responseData['number'] ?? 0,
+                'pageSize': responseData['size'] ?? size,
+                'isFirst': responseData['first'] ?? true,
+              }
+            };
+          }
+          // Custom format: {data: [], meta: {}}
+          else if (responseData.containsKey('data')) {
+            print('Custom format detected');
+            return responseData;
+          }
+          // Direkt array wrapper: responseData contains array directly
+          else {
+            print('Direct object format - looking for array values');
+            // Object içindeki değerleri kontrol et
+            final values = responseData.values.toList();
+            if (values.isNotEmpty && values.first is List) {
+              return {
+                'data': values.first,
+                'meta': {'isLast': true}
+              };
+            }
+            // Eğer responseData'nın kendisi array benzeri davranıyorsa
+            return {
+              'data': [],
+              'meta': {'isLast': true}
+            };
+          }
+        }
+        // Eğer response direkt array ise
+        else if (responseData is List) {
+          print('Direct array format detected');
+          return {
+            'data': responseData,
+            'meta': {'isLast': true}
+          };
+        }
+        else {
+          print('Unknown response format: ${responseData.runtimeType}');
+          return {
+            'data': [],
+            'meta': {'isLast': true}
+          };
+        }
       } else {
-        print('Error response: ${response.statusCode} - ${response.body}');
+        _handleHttpError(response, 'getDistributorCargoes');
         return null;
       }
     } catch (e) {
       print('Error getting distributor cargoes: $e');
-      return null;
-    }
-  }
-
-  // Kargo ekleme
-  static Future<List<Map<String, dynamic>>?> addCargo({
-    required String description,
-    required double selfLatitude,
-    required double selfLongitude,
-    required double targetLatitude,
-    required double targetLongitude,
-    required double weight,
-    required double height,
-    required String size,
-    required String phoneNumber,
-  }) async {
-    try {
-      final headers = await _getAuthHeaders();
-      final response = await http.post(
-        Uri.parse('$_baseUrl/distributor/addCargo'),
-        headers: headers,
-        body: json.encode({
-          'description': description,
-          'selfLocation': {
-            'latitude': selfLatitude,
-            'longitude': selfLongitude,
-          },
-          'targetLocation': {
-            'latitude': targetLatitude,
-            'longitude': targetLongitude,
-          },
-          'measure': {
-            'weight': weight,
-            'height': height,
-            'size': size,
-          },
-          'phoneNumber': phoneNumber,
-        }),
-      );
-
-      print('Add cargo response: ${response.statusCode}');
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data.cast<Map<String, dynamic>>();
+      // Hata tipine göre daha spesifik mesaj
+      if (e.toString().contains('SocketException') || e.toString().contains('Connection')) {
+        throw Exception('Backend\'e bağlanılamıyor - IP adresini kontrol edin');
+      } else if (e.toString().contains('TimeoutException')) {
+        throw Exception('İstek zaman aşımına uğradı - Backend çalışıyor mu?');
       }
-      return null;
-    } catch (e) {
-      print('Error adding cargo: $e');
-      return null;
+      rethrow;
     }
   }
 
-  // Kargo güncelleme
+  // Kargo güncelleme (Distributor) - SWAGGER'A UYGUN
   static Future<Map<String, dynamic>?> updateCargo({
     required int cargoId,
     required String description,
@@ -241,57 +173,55 @@ class CargoService {
   }) async {
     try {
       final headers = await _getAuthHeaders();
+      final url = '$_baseUrl/distributor/updateCargo/$cargoId';
+      
+      // Swagger'daki CargoRequest formatına uygun
+      final requestBody = {
+        'description': description,
+        'selfLocation': {
+          'latitude': selfLatitude,
+          'longitude': selfLongitude,
+        },
+        'targetLocation': {
+          'latitude': targetLatitude,
+          'longitude': targetLongitude,
+        },
+        'measure': {
+          'weight': weight,
+          'height': height,
+          'size': size,
+        },
+        'phoneNumber': phoneNumber,
+      };
+      
+      print('=== UPDATE CARGO REQUEST ===');
+      print('URL: $url');
+      print('Body: ${json.encode(requestBody)}');
+      
       final response = await http.put(
-        Uri.parse('$_baseUrl/distributor/updateCargo/$cargoId'),
+        Uri.parse(url),
         headers: headers,
-        body: json.encode({
-          'description': description,
-          'selfLocation': {
-            'latitude': selfLatitude,
-            'longitude': selfLongitude,
-          },
-          'targetLocation': {
-            'latitude': targetLatitude,
-            'longitude': targetLongitude,
-          },
-          'measure': {
-            'weight': weight,
-            'height': height,
-            'size': size,
-          },
-          'phoneNumber': phoneNumber,
-        }),
-      );
+        body: json.encode(requestBody),
+      ).timeout(Duration(seconds: 15));
 
       print('Update cargo response: ${response.statusCode}');
+      print('Response body: ${response.body}');
+      
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        // Swagger'a göre CargoResponse döndürüyor
+        final responseData = json.decode(response.body);
+        return responseData;
+      } else {
+        _handleHttpError(response, 'updateCargo');
+        return null;
       }
-      return null;
     } catch (e) {
       print('Error updating cargo: $e');
-      return null;
+      rethrow;
     }
   }
 
-  // Kargo silme
-  static Future<bool> deleteCargo(int cargoId) async {
-    try {
-      final headers = await _getAuthHeaders();
-      final response = await http.delete(
-        Uri.parse('$_baseUrl/distributor/deleteCargo/$cargoId'),
-        headers: headers,
-      );
-
-      print('Delete cargo response: ${response.statusCode}');
-      return response.statusCode == 200 && json.decode(response.body) == true;
-    } catch (e) {
-      print('Error deleting cargo: $e');
-      return false;
-    }
-  }
-
-  // Distributor bilgilerini güncelleme
+  // Distributor güncelleme - SWAGGER'A UYGUN
   static Future<Map<String, dynamic>?> updateDistributor({
     required String phoneNumber,
     required String city,
@@ -304,151 +234,404 @@ class CargoService {
   }) async {
     try {
       final headers = await _getAuthHeaders();
+      final url = '$_baseUrl/distributor/updateDistributor';
+      
+      // Swagger'daki DistributorRequest formatına uygun
+      final requestBody = {
+        'phoneNumber': phoneNumber,
+        'address': {
+          'city': city,
+          'neighbourhood': neighbourhood,
+          'street': street,
+          'build': build,
+        },
+        'username': username,
+        'mail': mail,
+        'password': password,
+      };
+      
+      print('=== UPDATE DISTRIBUTOR REQUEST ===');
+      print('URL: $url');
+      print('Body: ${json.encode(requestBody)}');
+      
       final response = await http.post(
-        Uri.parse('$_baseUrl/distributor/updateDistributor'),
+        Uri.parse(url),
         headers: headers,
-        body: json.encode({
-          'phoneNumber': phoneNumber,
-          'address': {
-            'city': city,
-            'neighbourhood': neighbourhood,
-            'street': street,
-            'build': build,
-          },
-          'username': username,
-          'mail': mail,
-          'password': password.isEmpty ? null : password,
-        }),
-      );
+        body: json.encode(requestBody),
+      ).timeout(Duration(seconds: 15));
 
       print('Update distributor response: ${response.statusCode}');
+      print('Response body: ${response.body}');
+      
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        // Swagger'a göre DistributorResponse döndürüyor
+        final responseData = json.decode(response.body);
+        return responseData;
+      } else {
+        _handleHttpError(response, 'updateDistributor');
+        return null;
       }
-      return null;
     } catch (e) {
       print('Error updating distributor: $e');
-      return null;
+      rethrow;
+    }
+  }
+
+  // DRIVER İŞLEMLERİ
+
+  // Driver'ın aldığı kargoları getirme
+  static Future<Map<String, dynamic>?> getDriverCargoes({
+    int page = 0,
+    int size = 10,
+    String sortBy = 'id',
+  }) async {
+    try {
+      final headers = await _getAuthHeaders();
+      final url = '$_baseUrl/driver/getMyCargoes?page=$page&size=$size&sortBy=$sortBy';
+      
+      print('=== DRIVER CARGOES REQUEST ===');
+      print('URL: $url');
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: headers,
+      ).timeout(Duration(seconds: 10));
+
+      print('Response Status: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        
+        // Aynı parsing mantığını kullan
+        if (responseData is Map<String, dynamic>) {
+          if (responseData.containsKey('content')) {
+            return {
+              'data': responseData['content'],
+              'meta': {
+                'isLast': responseData['last'] ?? true,
+                'totalElements': responseData['totalElements'] ?? 0,
+              }
+            };
+          } else if (responseData.containsKey('data')) {
+            return responseData;
+          } else {
+            final values = responseData.values.toList();
+            if (values.isNotEmpty && values.first is List) {
+              return {
+                'data': values.first,
+                'meta': {'isLast': true}
+              };
+            }
+            return {
+              'data': [],
+              'meta': {'isLast': true}
+            };
+          }
+        } else if (responseData is List) {
+          return {
+            'data': responseData,
+            'meta': {'isLast': true}
+          };
+        }
+        
+        return {
+          'data': [],
+          'meta': {'isLast': true}
+        };
+      } else {
+        _handleHttpError(response, 'getDriverCargoes');
+        return null;
+      }
+    } catch (e) {
+      print('Error getting driver cargoes: $e');
+      rethrow;
+    }
+  }
+
+  // Driver güncelleme - SWAGGER'A UYGUN
+  static Future<Map<String, dynamic>?> updateDriver({
+    required String username,
+    required String carType,
+    required String phoneNumber,
+    required String mail,
+    required String password,
+  }) async {
+    try {
+      final headers = await _getAuthHeaders();
+      final url = '$_baseUrl/driver/updateDriver';
+      
+      // Swagger'daki DriverRequest formatına uygun
+      final requestBody = {
+        'username': username,
+        'carType': carType,
+        'phoneNumber': phoneNumber,
+        'mail': mail,
+        'password': password,
+      };
+      
+      print('=== UPDATE DRIVER REQUEST ===');
+      print('URL: $url');
+      print('Body: ${json.encode(requestBody)}');
+      
+      final response = await http.post(
+        Uri.parse(url),
+        headers: headers,
+        body: json.encode(requestBody),
+      ).timeout(Duration(seconds: 15));
+
+      print('Update driver response: ${response.statusCode}');
+      print('Response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        // Swagger'a göre DriverResponse döndürüyor
+        final responseData = json.decode(response.body);
+        return responseData;
+      } else {
+        _handleHttpError(response, 'updateDriver');
+        return null;
+      }
+    } catch (e) {
+      print('Error updating driver: $e');
+      rethrow;
+    }
+  }
+
+  // Tüm kargoları getirme (Driver için)
+  static Future<Map<String, dynamic>?> getAllCargoes({
+    int page = 0,
+    int size = 10,
+    String sortBy = 'id',
+  }) async {
+    try {
+      final headers = await _getAuthHeaders();
+      final url = '$_baseUrl/driver/getAllCargoes?page=$page&size=$size&sortBy=$sortBy';
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: headers,
+      ).timeout(Duration(seconds: 10));
+
+      print('Get all cargoes response: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        
+        // Aynı parsing mantığı
+        if (responseData is Map<String, dynamic>) {
+          if (responseData.containsKey('content')) {
+            return {
+              'data': responseData['content'],
+              'meta': {
+                'isLast': responseData['last'] ?? true,
+                'totalElements': responseData['totalElements'] ?? 0,
+              }
+            };
+          } else if (responseData.containsKey('data')) {
+            return responseData;
+          } else {
+            final values = responseData.values.toList();
+            if (values.isNotEmpty && values.first is List) {
+              return {
+                'data': values.first,
+                'meta': {'isLast': true}
+              };
+            }
+            return {
+              'data': [],
+              'meta': {'isLast': true}
+            };
+          }
+        } else if (responseData is List) {
+          return {
+            'data': responseData,
+            'meta': {'isLast': true}
+          };
+        }
+        
+        return {
+          'data': [],
+          'meta': {'isLast': true}
+        };
+      } else {
+        _handleHttpError(response, 'getAllCargoes');
+        return null;
+      }
+    } catch (e) {
+      print('Error getting all cargoes: $e');
+      rethrow;
+    }
+  }
+
+  // Kargo alma (Driver)
+  static Future<bool> takeCargo(int cargoId) async {
+    try {
+      final headers = await _getAuthHeaders();
+      final url = '$_baseUrl/driver/takeCargo/$cargoId';
+      
+      final response = await http.post(
+        Uri.parse(url),
+        headers: headers,
+      ).timeout(Duration(seconds: 10));
+
+      print('Take cargo response: ${response.statusCode}');
+      print('Response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        // Swagger'a göre boolean döndürüyor
+        final result = json.decode(response.body);
+        return result == true;
+      } else {
+        _handleHttpError(response, 'takeCargo');
+        return false;
+      }
+    } catch (e) {
+      print('Error taking cargo: $e');
+      rethrow;
+    }
+  }
+
+  // Kargo teslimi (Driver)
+  static Future<bool> deliverCargo(int cargoId, String deliveryCode) async {
+    try {
+      final headers = await _getAuthHeaders();
+      final url = '$_baseUrl/driver/deliverCargo/$cargoId/$deliveryCode';
+      
+      final response = await http.post(
+        Uri.parse(url),
+        headers: headers,
+      ).timeout(Duration(seconds: 10));
+
+      print('Deliver cargo response: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final result = json.decode(response.body);
+        return result == true;
+      } else {
+        _handleHttpError(response, 'deliverCargo');
+        return false;
+      }
+    } catch (e) {
+      print('Error delivering cargo: $e');
+      rethrow;
+    }
+  }
+
+  // Kargo ekleme (Distributor)
+  static Future<List<Map<String, dynamic>>?> addCargo({
+    required String description,
+    required double selfLatitude,
+    required double selfLongitude,
+    required double targetLatitude,
+    required double targetLongitude,
+    required double weight,
+    required double height,
+    required String size,
+    required String phoneNumber,
+    String? selfAddress,
+    String? targetAddress,
+  }) async {
+    try {
+      final headers = await _getAuthHeaders();
+      final url = '$_baseUrl/distributor/addCargo';
+      
+      // Swagger'daki CargoRequest formatına uygun
+      final requestBody = {
+        'description': description,
+        'selfLocation': {
+          'latitude': selfLatitude,
+          'longitude': selfLongitude,
+        },
+        'targetLocation': {
+          'latitude': targetLatitude,
+          'longitude': targetLongitude,
+        },
+        'measure': {
+          'weight': weight,
+          'height': height,
+          'size': size,
+        },
+        'phoneNumber': phoneNumber,
+      };
+      
+      print('=== ADD CARGO REQUEST ===');
+      print('URL: $url');
+      print('Body: ${json.encode(requestBody)}');
+      
+      final response = await http.post(
+        Uri.parse(url),
+        headers: headers,
+        body: json.encode(requestBody),
+      ).timeout(Duration(seconds: 15));
+
+      print('Add cargo response: ${response.statusCode}');
+      print('Response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        // Swagger'a göre array döndürüyor
+        final responseData = json.decode(response.body);
+        if (responseData is List) {
+          return responseData.cast<Map<String, dynamic>>();
+        } else {
+          // Tek nesne dönerse array yap
+          return [responseData];
+        }
+      } else {
+        _handleHttpError(response, 'addCargo');
+        return null;
+      }
+    } catch (e) {
+      print('Error adding cargo: $e');
+      rethrow;
+    }
+  }
+
+  // Kargo silme
+  static Future<bool> deleteCargo(int cargoId) async {
+    try {
+      final headers = await _getAuthHeaders();
+      final url = '$_baseUrl/distributor/deleteCargo/$cargoId';
+      
+      final response = await http.delete(
+        Uri.parse(url),
+        headers: headers,
+      ).timeout(Duration(seconds: 10));
+
+      print('Delete cargo response: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final result = json.decode(response.body);
+        return result == true;
+      } else {
+        _handleHttpError(response, 'deleteCargo');
+        return false;
+      }
+    } catch (e) {
+      print('Error deleting cargo: $e');
+      rethrow;
+    }
+  }
+
+  // DEBUG: Bağlantı testi
+  static Future<bool> testConnection() async {
+    try {
+      print('=== CONNECTION TEST ===');
+      print('Testing URL: $_baseUrl');
+      
+      final response = await http.get(
+        Uri.parse('$_baseUrl/random'), // Random endpoint swagger'da var
+      ).timeout(Duration(seconds: 5));
+      
+      print('Connection test result: ${response.statusCode}');
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Connection test failed: $e');
+      return false;
     }
   }
 }
 
-// Yardımcı metodlar
-class CargoHelper {
-  static String getStatusDisplayName(String? status) {
-    switch (status?.toUpperCase()) {
-      case 'CREATED':
-        return 'Oluşturuldu';
-      case 'ASSIGNED':
-        return 'Atandı';
-      case 'PICKED_UP':
-        return 'Alındı';
-      case 'DELIVERED':
-        return 'Teslim Edildi';
-      case 'CANCELLED':
-        return 'İptal Edildi';
-      case 'EXPIRED':
-        return 'Süresi Doldu';
-      case 'FAILED':
-        return 'Başarısız';
-      default:
-        return status ?? 'Bilinmiyor';
-    }
-  }
-
-  static String getSizeDisplayName(String? size) {
-    switch (size?.toUpperCase()) {
-      case 'S':
-        return 'Küçük';
-      case 'M':
-        return 'Orta';
-      case 'L':
-        return 'Büyük';
-      case 'XL':
-        return 'Çok Büyük';
-      case 'XXL':
-        return 'Ekstra Büyük';
-      default:
-        return size ?? '';
-    }
-  }
-
-  static String getCarTypeDisplayName(String? carType) {
-    switch (carType?.toUpperCase()) {
-      case 'SEDAN':
-        return 'Sedan';
-      case 'HATCHBACK':
-        return 'Hatchback';
-      case 'SUV':
-        return 'SUV';
-      case 'MINIVAN':
-        return 'Minivan';
-      case 'PICKUP':
-        return 'Pickup';
-      case 'PANELVAN':
-        return 'Panel Van';
-      case 'MOTORCYCLE':
-        return 'Motosiklet';
-      case 'TRUCK':
-        return 'Kamyon';
-      case 'TRAILER':
-        return 'Treyler';
-      default:
-        return carType ?? '';
-    }
-  }
-
-  static Color getStatusColor(String? status) {
-    switch (status?.toUpperCase()) {
-      case 'CREATED':
-        return Colors.blue;
-      case 'ASSIGNED':
-        return Colors.orange;
-      case 'PICKED_UP':
-        return Colors.purple;
-      case 'DELIVERED':
-        return Colors.green;
-      case 'CANCELLED':
-      case 'FAILED':
-        return Colors.red;
-      case 'EXPIRED':
-        return Colors.grey;
-      default:
-        return Colors.blue;
-    }
-  }
-
-  static bool canBeTaken(String? status) => status?.toUpperCase() == 'CREATED';
-  static bool canBeDelivered(String? status) => status?.toUpperCase() == 'PICKED_UP';
-  static bool isCompleted(String? status) => status?.toUpperCase() == 'DELIVERED';
-  static bool isCancelled(String? status) => status?.toUpperCase() == 'CANCELLED';
-  static bool isActive(String? status) => ['CREATED', 'ASSIGNED', 'PICKED_UP'].contains(status?.toUpperCase());
-
-  static String formatDate(String? dateStr) {
-    if (dateStr == null) return '';
-    try {
-      final date = DateTime.parse(dateStr);
-      return '${date.day}/${date.month}/${date.year}';
-    } catch (e) {
-      return dateStr;
-    }
-  }
-
-  static String formatWeight(dynamic weight) {
-    if (weight == null) return '';
-    return '${weight.toString()} kg';
-  }
-
-  static String formatHeight(dynamic height) {
-    if (height == null) return '';
-    return '${height.toString()} cm';
-  }
-
-  static bool isValidCoordinate(double? latitude, double? longitude) {
-    if (latitude == null || longitude == null) return false;
-    return latitude >= -90 && 
-           latitude <= 90 && 
-           longitude >= -180 && 
-           longitude <= 180;
-  }
+// Math sınıfı eksik olabilir, Math.min yerine:
+extension MathUtils on int {
+  int min(int other) => this < other ? this : other;
 }
