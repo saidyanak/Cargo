@@ -5,7 +5,7 @@ plugins {
     id("com.google.gms.google-services") // FlutterFire Configuration
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
-}
+} 
 
 android {
     namespace = "com.example.new_app"
