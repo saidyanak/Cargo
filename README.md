@@ -72,5 +72,7 @@ Bildirim (yakın kargo varsa gösterilebilir)
 Kargo detay ekranları
 
 Profil yönetimi
+
+
 Flutter Diagram
 ![diagram](https://github.com/user-attachments/assets/0dc2f728-896e-40c6-a305-59aa456cd65a)
