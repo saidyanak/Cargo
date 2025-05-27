@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class RatingService {
-  static const String _baseUrl = 'http://localhost:8080';
+  static const String _baseUrl = 'https://67n86mnm-8080.euw.devtunnels.ms';
   static final _secureStorage = FlutterSecureStorage();
 
   static Future<Map<String, String>> _getAuthHeaders() async {

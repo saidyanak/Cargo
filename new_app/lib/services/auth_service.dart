@@ -4,7 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 
 class AuthService {
-  static const String baseUrl = 'http://localhost:8080';
+  static const String baseUrl = 'https://67n86mnm-8080.euw.devtunnels.ms';
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
 
   // Login işlemi - Backend'den LoginResponse alır
