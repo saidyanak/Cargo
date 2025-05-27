@@ -165,13 +165,18 @@ public class DistributorService {
 
 		Page<Cargo> cargoesPage = cargoRepository.findByDistributorId(distributor.getId(), pageable);
 		Page<CargoesResponse> cargoResponse = cargoesPage.map(cargo -> new CargoesResponse(
-				cargo.getId(),
-				new ResponseLocation(cargo.getSelfLocation().getLatitude(), cargo.getSelfLocation().getLongitude()),
-				new ResponseLocation(cargo.getTargetLocation().getLatitude(), cargo.getTargetLocation().getLongitude()),
-				new ResponseMeasure(cargo.getMeasure().getWeight(), cargo.getMeasure().getHeight(), cargo.getMeasure().getSize()),
-				cargo.getCargoSituation(),
-				cargo.getPhoneNumber(), 
-				cargo.getDistributor().getPhoneNumber()));
+	    cargo.getId(),
+	    cargo.getDescription(),  
+	    new ResponseLocation(cargo.getSelfLocation().getLatitude(), cargo.getSelfLocation().getLongitude()),
+	    new ResponseLocation(cargo.getTargetLocation().getLatitude(), cargo.getTargetLocation().getLongitude()),
+	    new ResponseMeasure(cargo.getMeasure().getWeight(), cargo.getMeasure().getHeight(), cargo.getMeasure().getSize()),
+	    cargo.getCargoSituation(),
+	    cargo.getPhoneNumber(), 
+	    cargo.getDistributor().getPhoneNumber(),
+	    cargo.getCreatedAt(),   
+	    cargo.getUpdatedAt(),   
+	    cargo.getVerificationCode() 
+			));
 		return cargoResponse;
     }
 }

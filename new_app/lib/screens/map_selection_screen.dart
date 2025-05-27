@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../services/location_service.dart';
 
 class MapSelectionScreen extends StatefulWidget {
   final LatLng? initialLocation;
   final String title;
 
-  MapSelectionScreen({
+  const MapSelectionScreen({
+    Key? key,
     this.initialLocation,
-    this.title = 'Konum Seç',
-  });
+    required this.title,
+  }) : super(key: key);
 
   @override
   _MapSelectionScreenState createState() => _MapSelectionScreenState();
@@ -18,64 +18,135 @@ class MapSelectionScreen extends StatefulWidget {
 class _MapSelectionScreenState extends State<MapSelectionScreen> {
   GoogleMapController? _mapController;
   LatLng? _selectedLocation;
-  String _selectedAddress = 'Konum seçiliyor...';
-  bool _isLoading = false;
+  Set<Marker> _markers = {};
+  bool _isMapLoading = true;
+  String? _mapError;
+  bool _isEmulator = true; // Emulator detection
+
+  // Önceden tanımlı konum seçenekleri
+  final List<Map<String, dynamic>> _predefinedLocations = [
+    {
+      'name': 'Taksim Meydanı',
+      'location': LatLng(41.0367, 28.9850),
+      'icon': Icons.location_city,
+      'color': Colors.red,
+    },
+    {
+      'name': 'Sultanahmet',
+      'location': LatLng(41.0082, 28.9784),
+      'icon': Icons.account_balance,
+      'color': Colors.blue,
+    },
+    {
+      'name': 'Kadıköy İskele',
+      'location': LatLng(40.9833, 29.0167),
+      'icon': Icons.directions_boat,
+      'color': Colors.green,
+    },
+    {
+      'name': 'Beşiktaş',
+      'location': LatLng(41.0422, 29.0067),
+      'icon': Icons.stadium,
+      'color': Colors.purple,
+    },
+    {
+      'name': 'Üsküdar',
+      'location': LatLng(41.0214, 29.0078),
+      'icon': Icons.mosque,
+      'color': Colors.orange,
+    },
+  ];
 
   @override
   void initState() {
     super.initState();
+    print('=== MAP SELECTION SCREEN INIT ===');
+
     _selectedLocation = widget.initialLocation;
+    _updateMarkers();
+
+    // Emulator detection (basit method)
+    _detectEmulator();
+
+    // Timeout
+    Future.delayed(Duration(seconds: 8), () {
+      if (mounted && _isMapLoading) {
+        setState(() {
+          _isMapLoading = false;
+          _mapError = _isEmulator
+              ? 'Emulator\'da harita sorunlu olabilir'
+              : 'Harita yüklenemedi';
+        });
+      }
+    });
+  }
+
+  void _detectEmulator() {
+    // Basit emulator detection
+    // Gerçek projede platform channels kullanılabilir
+    _isEmulator = true; // Şimdilik true kabul et
+  }
+
+  void _updateMarkers() {
+    _markers.clear();
     if (_selectedLocation != null) {
-      _getAddressFromLocation(_selectedLocation!);
-    }
-  }
-
-  Future<void> _getAddressFromLocation(LatLng location) async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    final address = await LocationService.getAddressFromCoordinates(
-      location.latitude,
-      location.longitude,
-    );
-
-    setState(() {
-      _selectedAddress = address;
-      _isLoading = false;
-    });
-  }
-
-  Future<void> _getCurrentLocation() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    final position = await LocationService.getCurrentLocation();
-    if (position != null) {
-      final location = LatLng(position.latitude, position.longitude);
-      
-      setState(() {
-        _selectedLocation = location;
-      });
-
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(location, 15.0),
+      _markers.add(
+        Marker(
+          markerId: MarkerId('selected_location'),
+          position: _selectedLocation!,
+          draggable: true,
+          onDragEnd: (LatLng position) {
+            setState(() {
+              _selectedLocation = position;
+            });
+          },
+          infoWindow: InfoWindow(
+            title: 'Seçilen Konum',
+            snippet: '${_selectedLocation!.latitude.toStringAsFixed(6)}, ${_selectedLocation!.longitude.toStringAsFixed(6)}',
+          ),
+        ),
       );
-
-      await _getAddressFromLocation(location);
     }
+  }
 
+  void _onMapTapped(LatLng position) {
     setState(() {
-      _isLoading = false;
+      _selectedLocation = position;
+      _updateMarkers();
     });
   }
 
-  void _onMapTapped(LatLng location) {
+  void _onMapCreated(GoogleMapController controller) {
+    print('Map created successfully!');
+    _mapController = controller;
+    setState(() {
+      _isMapLoading = false;
+      _mapError = null;
+    });
+  }
+
+  void _selectPredefinedLocation(Map<String, dynamic> locationData) {
+    final LatLng location = locationData['location'];
     setState(() {
       _selectedLocation = location;
+      _updateMarkers();
     });
-    _getAddressFromLocation(location);
+
+    // Haritayı bu konuma odakla (eğer harita yüklendiyse)
+    if (_mapController != null) {
+      _mapController!.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: location, zoom: 16.0),
+        ),
+      );
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${locationData['name']} seçildi'),
+        backgroundColor: locationData['color'],
+      ),
+    );
   }
 
   @override
@@ -86,167 +157,317 @@ class _MapSelectionScreenState extends State<MapSelectionScreen> {
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            icon: Icon(Icons.my_location),
-            onPressed: _getCurrentLocation,
-          ),
+          if (_selectedLocation != null)
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pop(context, _selectedLocation);
+              },
+              icon: Icon(Icons.check, color: Colors.white),
+              label: Text(
+                'SEÇ',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
         ],
       ),
-      body: Stack(
+      body: Column(
         children: [
-          // Google Map
-          GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: _selectedLocation ?? LatLng(41.0082, 28.9784), // İstanbul
-              zoom: 12.0,
-            ),
-            onMapCreated: (GoogleMapController controller) {
-              _mapController = controller;
-            },
-            onTap: _onMapTapped,
-            markers: _selectedLocation != null
-                ? {
-                    Marker(
-                      markerId: MarkerId('selected_location'),
-                      position: _selectedLocation!,
-                      draggable: true,
-                      onDragEnd: (newPosition) {
-                        setState(() {
-                          _selectedLocation = newPosition;
-                        });
-                        _getAddressFromLocation(newPosition);
+          // Hazır konum seçenekleri (Emulator için)
+          if (_isEmulator || _mapError != null) ...[
+            Container(
+              height: 120,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Text(
+                      _isEmulator
+                          ? '📱 Emulator için hazır konumlar:'
+                          : '🗺️ Hızlı konum seçimi:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      itemCount: _predefinedLocations.length,
+                      itemBuilder: (context, index) {
+                        final location = _predefinedLocations[index];
+                        final isSelected = _selectedLocation == location['location'];
+
+                        return Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 4),
+                          child: GestureDetector(
+                            onTap: () => _selectPredefinedLocation(location),
+                            child: Container(
+                              width: 100,
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? location['color']
+                                    : Colors.grey[200],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? location['color']
+                                      : Colors.grey[300]!,
+                                  width: 2,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    location['icon'],
+                                    color: isSelected
+                                        ? Colors.white
+                                        : location['color'],
+                                    size: 24,
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    location['name'],
+                                    style: TextStyle(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : Colors.black87,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
                       },
                     ),
-                  }
-                : {},
-          ),
-
-          // Alt bilgi kartı
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: Offset(0, -2),
                   ),
                 ],
               ),
-              child: Padding(
-                padding: EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.location_on, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text(
-                          'Seçili Konum',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 8),
-                    
-                    if (_isLoading)
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                          SizedBox(width: 8),
-                          Text('Adres alınıyor...'),
-                        ],
-                      )
-                    else
-                      Text(
-                        _selectedAddress,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    
-                    if (_selectedLocation != null) ...[
-                      SizedBox(height: 8),
-                      Text(
-                        'Koordinatlar: ${_selectedLocation!.latitude.toStringAsFixed(6)}, ${_selectedLocation!.longitude.toStringAsFixed(6)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ],
-                    
-                    SizedBox(height: 16),
-                    
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _selectedLocation != null
-                                ? () => Navigator.pop(context, _selectedLocation)
-                                : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              foregroundColor: Colors.white,
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: Text(
-                              'Konumu Seç',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: 12),
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey[300],
-                            foregroundColor: Colors.grey[700],
-                            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: Text('İptal'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+            ),
+            Divider(),
+          ],
+
+          // Harita bölümü
+          Expanded(
+            child: Stack(
+              children: [
+                // Harita veya alternatif görünüm
+                if (_mapError != null)
+                  _buildMapAlternative()
+                else if (_isMapLoading)
+                  _buildLoadingView()
+                else
+                  _buildMapView(),
+
+                // Seçilen konum bilgisi
+                if (_selectedLocation != null)
+                  Positioned(
+                    top: 16,
+                    left: 16,
+                    right: 16,
+                    child: _buildLocationInfo(),
+                  ),
+              ],
             ),
           ),
 
-          // Harita merkezi göstergesi
-          if (_selectedLocation == null)
-            Center(
-              child: Icon(
-                Icons.location_on,
-                size: 40,
-                color: Colors.red,
+          // Alt butonlar
+          _buildBottomButtons(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMapView() {
+    final initialLocation = widget.initialLocation ?? LatLng(41.0082, 28.9784);
+
+    return GoogleMap(
+      onMapCreated: _onMapCreated,
+      initialCameraPosition: CameraPosition(
+        target: initialLocation,
+        zoom: 12.0,
+      ),
+      onTap: _onMapTapped,
+      markers: _markers,
+      myLocationEnabled: false, // Emulator'da sorun çıkarabilir
+      myLocationButtonEnabled: false,
+      zoomControlsEnabled: true,
+      mapToolbarEnabled: false,
+      compassEnabled: true,
+      trafficEnabled: false,
+      buildingsEnabled: false, // Performance için
+      indoorViewEnabled: false,
+      mapType: MapType.normal,
+      liteModeEnabled: _isEmulator, // Emulator için lite mode
+    );
+  }
+
+  Widget _buildMapAlternative() {
+    return Container(
+      color: Colors.grey[100],
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.map_outlined,
+              size: 80,
+              color: Colors.grey[400],
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Harita Alternatifi',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[600],
               ),
             ),
+            SizedBox(height: 8),
+            Text(
+              'Yukarıdaki hazır konumlardan birini seçin\nveya koordinat girin',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[500],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _isMapLoading = true;
+                  _mapError = null;
+                });
+              },
+              icon: Icon(Icons.refresh),
+              label: Text('Haritayı Tekrar Dene'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingView() {
+    return Container(
+      color: Colors.grey[50],
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: Colors.blue),
+            SizedBox(height: 16),
+            Text(
+              'Google Maps yükleniyor...',
+              style: TextStyle(fontSize: 16),
+            ),
+            if (_isEmulator) ...[
+              SizedBox(height: 8),
+              Text(
+                'Emulator\'da yavaş olabilir',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocationInfo() {
+    return Card(
+      elevation: 4,
+      child: Padding(
+        padding: EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(Icons.location_on, color: Colors.green),
+            SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Seçilen Konum',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    '${_selectedLocation!.latitude.toStringAsFixed(6)}, ${_selectedLocation!.longitude.toStringAsFixed(6)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomButtons() {
+    return Container(
+      padding: EdgeInsets.all(16),
+      child: Row(
+        children: [
+          if (_selectedLocation != null) ...[
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _selectedLocation = null;
+                    _markers.clear();
+                  });
+                },
+                icon: Icon(Icons.clear),
+                label: Text('Temizle'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: BorderSide(color: Colors.red),
+                ),
+              ),
+            ),
+            SizedBox(width: 12),
+          ],
+          Expanded(
+            flex: 2,
+            child: ElevatedButton.icon(
+              onPressed: _selectedLocation != null
+                  ? () => Navigator.pop(context, _selectedLocation)
+                  : null,
+              icon: Icon(Icons.check),
+              label: Text(_selectedLocation != null
+                  ? 'Bu Konumu Seç'
+                  : 'Konum Seçin'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
         ],
       ),
     );

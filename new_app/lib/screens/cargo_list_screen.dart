@@ -21,13 +21,13 @@ class _CargoListScreenState extends State<CargoListScreen>
   // Animation controllers
   late AnimationController _refreshController;
   late AnimationController _fabController;
-  late Animation<double> _fabScaleAnimation;
+  late AnimationController _fadeController;
+  Animation<double>? _fabScaleAnimation;
+  Animation<double>? _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    _loadCargoes();
-    _scrollController.addListener(_onScroll);
     
     // Initialize animations
     _refreshController = AnimationController(
@@ -40,6 +40,11 @@ class _CargoListScreenState extends State<CargoListScreen>
       vsync: this,
     );
     
+    _fadeController = AnimationController(
+      duration: Duration(milliseconds: 600),
+      vsync: this,
+    );
+    
     _fabScaleAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -48,9 +53,26 @@ class _CargoListScreenState extends State<CargoListScreen>
       curve: Curves.elasticOut,
     ));
     
-    // Start FAB animation
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeInOut,
+    ));
+
+    // Scroll listener
+    _scrollController.addListener(_onScroll);
+    
+    // Load data immediately - BU EKSİKTİ!
+    _loadCargoes();
+    
+    // Start animations
     Future.delayed(Duration(milliseconds: 500), () {
-      if (mounted) _fabController.forward();
+      if (mounted) {
+        _fabController.forward();
+        _fadeController.forward();
+      }
     });
   }
 
@@ -63,6 +85,8 @@ class _CargoListScreenState extends State<CargoListScreen>
   }
 
   Future<void> _loadCargoes() async {
+    print('=== LOADING DISTRIBUTOR CARGOES ==='); // Debug log
+    
     setState(() {
       _isLoading = true;
       _currentPage = 0;
@@ -74,13 +98,12 @@ class _CargoListScreenState extends State<CargoListScreen>
     _refreshController.repeat();
 
     try {
-      print('=== LOADING DISTRIBUTOR CARGOES ===');
       final result = await CargoService.getDistributorCargoes(
         page: _currentPage,
         size: _pageSize,
       );
 
-      print('Service result: $result');
+      print('Service result: $result'); // Debug log
 
       if (result != null) {
         // Backend response yapısını kontrol et
@@ -109,8 +132,8 @@ class _CargoListScreenState extends State<CargoListScreen>
           };
         }
         
-        print('Cargo list: $cargoList');
-        print('Meta: $meta');
+        print('Cargo list: $cargoList'); // Debug log
+        print('Meta: $meta'); // Debug log
         
         setState(() {
           _cargoes = cargoList.cast<Map<String, dynamic>>();
@@ -118,7 +141,7 @@ class _CargoListScreenState extends State<CargoListScreen>
           _isLoading = false;
         });
       } else {
-        print('Result is null');
+        print('Result is null'); // Debug log
         setState(() {
           _cargoes = [];
           _hasMoreData = false;
@@ -138,12 +161,13 @@ class _CargoListScreenState extends State<CargoListScreen>
             children: [
               Icon(Icons.error_outline, color: Colors.white),
               SizedBox(width: 8),
-              Expanded(child: Text('Kargolar yüklenirken hata oluştu')),
+              Expanded(child: Text('Kargolar yüklenirken hata oluştu: $e')),
             ],
           ),
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.red[600],
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          margin: EdgeInsets.all(16),
         ),
       );
     } finally {
@@ -207,17 +231,21 @@ class _CargoListScreenState extends State<CargoListScreen>
       context: context,
       barrierDismissible: false,
       builder: (context) => Center(
-        child: Card(
-          child: Padding(
-            padding: EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Kargo siliniyor...'),
-              ],
+        child: Container(
+          padding: EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.grey[850]!, Colors.grey[900]!],
             ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: Colors.red[400]),
+              SizedBox(height: 16),
+              Text('Kargo siliniyor...', style: TextStyle(color: Colors.white)),
+            ],
           ),
         ),
       ),
@@ -237,9 +265,10 @@ class _CargoListScreenState extends State<CargoListScreen>
                 Text('Kargo başarıyla silindi!'),
               ],
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: Colors.green[600],
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: EdgeInsets.all(16),
           ),
         );
         _loadCargoes(); // Listeyi yenile
@@ -253,9 +282,10 @@ class _CargoListScreenState extends State<CargoListScreen>
                 Text('Kargo silinirken hata oluştu!'),
               ],
             ),
-            backgroundColor: Colors.red,
+            backgroundColor: Colors.red[600],
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: EdgeInsets.all(16),
           ),
         );
       }
@@ -264,7 +294,10 @@ class _CargoListScreenState extends State<CargoListScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Bir hata oluştu: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.red[600],
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          margin: EdgeInsets.all(16),
         ),
       );
     }
@@ -274,60 +307,86 @@ class _CargoListScreenState extends State<CargoListScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            Icon(Icons.delete_outline, color: Colors.red),
-            SizedBox(width: 8),
-            Text('Kargo Sil'),
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.red[600]!, Colors.red[800]!],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.delete_outline, color: Colors.white, size: 24),
+            ),
+            SizedBox(width: 12),
+            Text('Kargo Sil', style: TextStyle(color: Colors.white)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Bu kargoyu silmek istediğinizden emin misiniz?'),
-            SizedBox(height: 12),
+            Text(
+              'Bu kargoyu silmek istediğinizden emin misiniz?',
+              style: TextStyle(color: Colors.white70, fontSize: 16),
+            ),
+            SizedBox(height: 16),
             Container(
-              padding: EdgeInsets.all(12),
+              padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
+                gradient: LinearGradient(
+                  colors: [Colors.red[800]!.withOpacity(0.2), Colors.red[600]!.withOpacity(0.1)],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.withOpacity(0.3)),
               ),
               child: Text(
                 '"${cargo['description']}"',
                 style: TextStyle(
+                  color: Colors.white,
                   fontStyle: FontStyle.italic,
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ),
-            SizedBox(height: 8),
+            SizedBox(height: 12),
             Text(
               'Bu işlem geri alınamaz!',
               style: TextStyle(
-                color: Colors.red,
+                color: Colors.red[400],
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ],
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('İptal'),
+            child: Text('İptal', style: TextStyle(color: Colors.grey[400])),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteCargo(cargo['id']);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.red[600]!, Colors.red[800]!],
+              ),
+              borderRadius: BorderRadius.circular(25),
             ),
-            child: Text('Sil'),
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _deleteCargo(cargo['id']);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+              ),
+              child: Text('Sil', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
           ),
         ],
       ),
@@ -342,33 +401,44 @@ class _CargoListScreenState extends State<CargoListScreen>
     final statusIcon = CargoHelper.getStatusIcon(status);
 
     return TweenAnimationBuilder(
-      duration: Duration(milliseconds: 300 + (index * 100)),
+      duration: Duration(milliseconds: 400 + (index * 100)),
       tween: Tween<double>(begin: 0.0, end: 1.0),
       builder: (context, double value, child) {
         return Transform.translate(
-          offset: Offset(0, 50 * (1 - value)),
+          offset: Offset(50 * (1 - value), 0),
           child: Opacity(
             opacity: value,
             child: child,
           ),
         );
       },
-      child: Card(
+      child: Container(
         margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        elevation: 6,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                statusColor.withOpacity(0.02),
-              ],
-            ),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.grey[850]!,
+              Colors.grey[900]!,
+            ],
           ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 15,
+              offset: Offset(0, 8),
+            ),
+            BoxShadow(
+              color: statusColor.withOpacity(0.1),
+              blurRadius: 20,
+              offset: Offset(0, 0),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
           child: Padding(
             padding: EdgeInsets.all(20),
             child: Column(
@@ -383,7 +453,7 @@ class _CargoListScreenState extends State<CargoListScreen>
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.grey[800],
+                          color: Colors.white,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -395,19 +465,27 @@ class _CargoListScreenState extends State<CargoListScreen>
                       child: Container(
                         padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: statusColor.withOpacity(0.5)),
+                          gradient: LinearGradient(
+                            colors: [statusColor.withOpacity(0.8), statusColor],
+                          ),
+                          borderRadius: BorderRadius.circular(25),
+                          boxShadow: [
+                            BoxShadow(
+                              color: statusColor.withOpacity(0.4),
+                              blurRadius: 8,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(statusIcon, size: 16, color: statusColor),
+                            Icon(statusIcon, size: 16, color: Colors.white),
                             SizedBox(width: 4),
                             Text(
                               statusText,
                               style: TextStyle(
-                                color: statusColor,
+                                color: Colors.white,
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -424,8 +502,9 @@ class _CargoListScreenState extends State<CargoListScreen>
                 Container(
                   padding: EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.black.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey[700]!),
                   ),
                   child: Column(
                     children: [
@@ -435,13 +514,13 @@ class _CargoListScreenState extends State<CargoListScreen>
                           _buildInfoChip(
                             Icons.phone,
                             cargo['phoneNumber'] ?? 'Telefon yok',
-                            Colors.green,
+                            LinearGradient(colors: [Colors.green[600]!, Colors.green[800]!]),
                           ),
                           Spacer(),
                           _buildInfoChip(
                             Icons.scale,
                             CargoHelper.formatWeight(cargo['measure']?['weight']),
-                            Colors.orange,
+                            LinearGradient(colors: [Colors.orange[600]!, Colors.orange[800]!]),
                           ),
                         ],
                       ),
@@ -452,24 +531,33 @@ class _CargoListScreenState extends State<CargoListScreen>
                           _buildInfoChip(
                             Icons.straighten,
                             CargoHelper.formatHeight(cargo['measure']?['height']),
-                            Colors.purple,
+                            LinearGradient(colors: [Colors.purple[600]!, Colors.purple[800]!]),
                           ),
                           Spacer(),
                           Container(
                             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.1),
+                              gradient: LinearGradient(
+                                colors: [Colors.blue[600]!, Colors.blue[800]!],
+                              ),
                               borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.blue.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.aspect_ratio, size: 16, color: Colors.blue),
+                                Icon(Icons.aspect_ratio, size: 16, color: Colors.white),
                                 SizedBox(width: 4),
                                 Text(
                                   CargoHelper.getSizeDisplayName(cargo['measure']?['size']),
                                   style: TextStyle(
-                                    color: Colors.blue,
+                                    color: Colors.white,
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -488,12 +576,12 @@ class _CargoListScreenState extends State<CargoListScreen>
                   SizedBox(height: 12),
                   Row(
                     children: [
-                      Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                      Icon(Icons.access_time, size: 16, color: Colors.grey[400]),
                       SizedBox(width: 6),
                       Text(
                         'Oluşturulma: ${CargoHelper.formatDate(cargo['createdAt'])}',
                         style: TextStyle(
-                          color: Colors.grey[600],
+                          color: Colors.grey[400],
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                         ),
@@ -512,7 +600,7 @@ class _CargoListScreenState extends State<CargoListScreen>
                       _buildActionButton(
                         icon: Icons.edit,
                         label: 'Düzenle',
-                        color: Colors.blue,
+                        gradient: LinearGradient(colors: [Colors.blue[600]!, Colors.blue[800]!]),
                         onPressed: () async {
                           final result = await Navigator.push(
                             context,
@@ -530,7 +618,9 @@ class _CargoListScreenState extends State<CargoListScreen>
                     _buildActionButton(
                       icon: Icons.delete_outline,
                       label: 'Sil',
-                      color: canEdit ? Colors.red : Colors.grey,
+                      gradient: canEdit 
+                          ? LinearGradient(colors: [Colors.red[600]!, Colors.red[800]!])
+                          : LinearGradient(colors: [Colors.grey[600]!, Colors.grey[800]!]),
                       onPressed: canEdit ? () => _showDeleteDialog(cargo) : null,
                     ),
                   ],
@@ -543,22 +633,29 @@ class _CargoListScreenState extends State<CargoListScreen>
     );
   }
 
-  Widget _buildInfoChip(IconData icon, String text, Color color) {
+  Widget _buildInfoChip(IconData icon, String text, LinearGradient gradient) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        gradient: gradient,
         borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: gradient.colors.first.withOpacity(0.3),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: color),
+          Icon(icon, size: 16, color: Colors.white),
           SizedBox(width: 4),
           Text(
             text,
             style: TextStyle(
-              color: color,
+              color: Colors.white,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -571,35 +668,44 @@ class _CargoListScreenState extends State<CargoListScreen>
   Widget _buildActionButton({
     required IconData icon,
     required String label,
-    required Color color,
+    required LinearGradient gradient,
     VoidCallback? onPressed,
   }) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(25),
-      child: InkWell(
-        onTap: onPressed,
+    return Container(
+      decoration: BoxDecoration(
+        gradient: onPressed != null ? gradient : null,
+        color: onPressed == null ? Colors.grey[700] : null,
         borderRadius: BorderRadius.circular(25),
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            border: Border.all(color: color.withOpacity(0.3)),
-            borderRadius: BorderRadius.circular(25),
+        boxShadow: onPressed != null ? [
+          BoxShadow(
+            color: gradient.colors.first.withOpacity(0.3),
+            blurRadius: 8,
+            offset: Offset(0, 4),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: color),
-              SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+        ] : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(25),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: Colors.white),
+                SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -607,84 +713,108 @@ class _CargoListScreenState extends State<CargoListScreen>
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          TweenAnimationBuilder(
-            duration: Duration(seconds: 2),
-            tween: Tween<double>(begin: 0.0, end: 1.0),
-            builder: (context, double value, child) {
-              return Transform.scale(
-                scale: 0.8 + (0.2 * value),
-                child: Opacity(
-                  opacity: value,
-                  child: child,
-                ),
-              );
-            },
-            child: Container(
-              padding: EdgeInsets.all(30),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.inventory_2_outlined,
-                size: 80,
-                color: Colors.blue[300],
-              ),
-            ),
-          ),
-          SizedBox(height: 24),
-          Text(
-            'Henüz kargo eklemediniz',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[700],
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'İlk kargonuzu ekleyerek başlayın!',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
-          ),
-          SizedBox(height: 32),
-          Hero(
-            tag: 'add_cargo_button',
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AddCargoScreen(),
+    if (_fadeAnimation == null) {
+      return Center(child: CircularProgressIndicator(color: Colors.purple[400]));
+    }
+
+    return FadeTransition(
+      opacity: _fadeAnimation!,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TweenAnimationBuilder(
+              duration: Duration(seconds: 2),
+              tween: Tween<double>(begin: 0.0, end: 1.0),
+              builder: (context, double value, child) {
+                return Transform.scale(
+                  scale: 0.8 + (0.2 * value),
+                  child: Container(
+                    padding: EdgeInsets.all(30),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.purple[800]!.withOpacity(0.2), Colors.purple[600]!.withOpacity(0.1)],
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.purple.withOpacity(0.3),
+                          blurRadius: 20,
+                          offset: Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.inventory_2_outlined,
+                      size: 80,
+                      color: Colors.purple[400],
+                    ),
                   ),
                 );
-                if (result == true) {
-                  _loadCargoes();
-                }
               },
-              icon: Icon(Icons.add, size: 24),
-              label: Text(
-                'İlk Kargonuzu Ekleyin',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                elevation: 8,
+            ),
+            SizedBox(height: 24),
+            Text(
+              'Henüz kargo eklemediniz',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
               ),
             ),
-          ),
-        ],
+            SizedBox(height: 8),
+            Text(
+              'İlk kargonuzu ekleyerek başlayın!',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.white70,
+              ),
+            ),
+            SizedBox(height: 32),
+            Hero(
+              tag: 'add_cargo_button',
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.purple[600]!, Colors.purple[800]!],
+                  ),
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.purple.withOpacity(0.4),
+                      blurRadius: 15,
+                      offset: Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AddCargoScreen(),
+                      ),
+                    );
+                    if (result == true) {
+                      _loadCargoes();
+                    }
+                  },
+                  icon: Icon(Icons.add, size: 24, color: Colors.white),
+                  label: Text(
+                    'İlk Kargonuzu Ekleyin',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -692,93 +822,111 @@ class _CargoListScreenState extends State<CargoListScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[900],
       appBar: AppBar(
         title: Text(
           'Kargolarım',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: [
-          RotationTransition(
-            turns: _refreshController,
-            child: IconButton(
-              icon: Icon(Icons.refresh),
-              onPressed: _loadCargoes,
-              tooltip: 'Yenile',
-            ),
-          ),
-        ],
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Colors.blue[600]!, Colors.blue[800]!],
+              colors: [Colors.purple[600]!, Colors.purple[800]!],
             ),
           ),
         ),
+        actions: [
+          RotationTransition(
+            turns: _refreshController,
+            child: IconButton(
+              icon: Icon(Icons.refresh, color: Colors.white),
+              onPressed: _loadCargoes,
+              tooltip: 'Yenile',
+            ),
+          ),
+        ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadCargoes,
-        color: Colors.blue,
-        child: _isLoading && _cargoes.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(color: Colors.blue),
-                    SizedBox(height: 16),
-                    Text(
-                      'Kargolar yükleniyor...',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 16,
+      body: Container(
+        color: Colors.grey[900],
+        child: RefreshIndicator(
+          onRefresh: _loadCargoes,
+          color: Colors.purple[400],
+          backgroundColor: Colors.grey[800],
+          child: _isLoading && _cargoes.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(color: Colors.purple[400]),
+                      SizedBox(height: 16),
+                      Text(
+                        'Kargolar yükleniyor...',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 16,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              )
-            : _cargoes.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: EdgeInsets.only(top: 8, bottom: 80),
-                    itemCount: _cargoes.length + (_hasMoreData && _isLoading ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index == _cargoes.length) {
-                        return Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Center(
-                            child: CircularProgressIndicator(color: Colors.blue),
-                          ),
-                        );
-                      }
-                      return _buildCargoCard(_cargoes[index], index);
-                    },
+                    ],
                   ),
+                )
+              : _cargoes.isEmpty
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: EdgeInsets.only(top: 8, bottom: 80),
+                      itemCount: _cargoes.length + (_hasMoreData && _isLoading ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == _cargoes.length) {
+                          return Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Center(
+                              child: CircularProgressIndicator(color: Colors.purple[400]),
+                            ),
+                          );
+                        }
+                        return _buildCargoCard(_cargoes[index], index);
+                      },
+                    ),
+        ),
       ),
       floatingActionButton: ScaleTransition(
-        scale: _fabScaleAnimation,
-        child: FloatingActionButton.extended(
-          onPressed: () async {
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => AddCargoScreen()),
-            );
-            if (result == true) {
-              _loadCargoes();
-            }
-          },
-          backgroundColor: Colors.blue,
-          foregroundColor: Colors.white,
-          icon: Icon(Icons.add),
-          label: Text(
-            'Kargo Ekle',
-            style: TextStyle(fontWeight: FontWeight.bold),
+        scale: _fabScaleAnimation ?? AlwaysStoppedAnimation(1.0),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.purple[600]!, Colors.purple[800]!],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.purple.withOpacity(0.4),
+                blurRadius: 15,
+                offset: Offset(0, 8),
+              ),
+            ],
           ),
-          elevation: 8,
+          child: FloatingActionButton.extended(
+            onPressed: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => AddCargoScreen()),
+              );
+              if (result == true) {
+                _loadCargoes();
+              }
+            },
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            icon: Icon(Icons.add, color: Colors.white),
+            label: Text(
+              'Kargo Ekle',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ),
         ),
       ),
     );
@@ -789,6 +937,7 @@ class _CargoListScreenState extends State<CargoListScreen>
     _scrollController.dispose();
     _refreshController.dispose();
     _fabController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 }

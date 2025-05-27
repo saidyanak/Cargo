@@ -1,3 +1,4 @@
+// android/app/build.gradle.kts
 import org.gradle.api.JavaVersion
 
 plugins {
@@ -40,7 +41,7 @@ android {
 }
 
 dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
 
 flutter {

@@ -1,3 +1,4 @@
+import 'package:cargo_app/utils/cargo_helper.dart';
 import 'package:flutter/material.dart';
 import '../services/cargo_service.dart';
 
@@ -32,64 +33,146 @@ class _EditCargoScreenState extends State<EditCargoScreen> {
     _loadCargoData();
   }
 
-  void _loadCargoData() {
-    final cargo = widget.cargo;
-    _descriptionController.text = cargo['description'] ?? '';
-    _phoneController.text = cargo['phoneNumber'] ?? '';
-    _weightController.text = cargo['measure']?['weight']?.toString() ?? '';
-    _heightController.text = cargo['measure']?['height']?.toString() ?? '';
-    _selectedSize = cargo['measure']?['size'] ?? 'M';
+  // edit_cargo_screen.dart - _loadCargoData method güncellemesi
+
+void _loadCargoData() {
+  final cargo = widget.cargo;
+  
+  // Güvenli field erişimi ile form alanlarını doldur
+  _descriptionController.text = CargoHelper.getDescription(cargo);
+  _phoneController.text = CargoHelper.getPhoneNumber(cargo);
+  
+  // Measure bilgilerini güvenli şekilde al
+  Map<String, dynamic> measure = CargoHelper.getMeasure(cargo);
+  _weightController.text = measure['weight']?.toString() ?? '0';
+  _heightController.text = measure['height']?.toString() ?? '0';
+  _selectedSize = measure['size'] ?? 'M';
+  
+  // Konum bilgilerini güvenli şekilde al
+  Map<String, dynamic> selfLocation = CargoHelper.getSelfLocation(cargo);
+  Map<String, dynamic> targetLocation = CargoHelper.getTargetLocation(cargo);
+  
+  _selfLatController.text = selfLocation['latitude']?.toString() ?? '0.0';
+  _selfLngController.text = selfLocation['longitude']?.toString() ?? '0.0';
+  _targetLatController.text = targetLocation['latitude']?.toString() ?? '0.0';
+  _targetLngController.text = targetLocation['longitude']?.toString() ?? '0.0';
+}
+
+// _updateCargo method güncellemesi
+Future<void> _updateCargo() async {
+  if (!_formKey.currentState!.validate()) {
+    return;
+  }
+
+  // Sadece düzenlenebilir kargolar güncellenebilir
+  if (!CargoHelper.canEdit(widget.cargo)) {
+    _showErrorDialog('Bu kargo artık düzenlenemez. Sadece "Oluşturuldu" durumundaki kargolar düzenlenebilir.');
+    return;
+  }
+
+  setState(() {
+    _isLoading = true;
+  });
+
+  try {
+    // Kargo ID'sini güvenli şekilde al
+    dynamic cargoId = widget.cargo['id'];
+    int? id;
     
-    // Konum bilgileri
-    _selfLatController.text = cargo['selfLocation']?['latitude']?.toString() ?? '';
-    _selfLngController.text = cargo['selfLocation']?['longitude']?.toString() ?? '';
-    _targetLatController.text = cargo['targetLocation']?['latitude']?.toString() ?? '';
-    _targetLngController.text = cargo['targetLocation']?['longitude']?.toString() ?? '';
-  }
-
-  Future<void> _updateCargo() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
+    if (cargoId is int) {
+      id = cargoId;
+    } else if (cargoId != null) {
+      id = int.tryParse(cargoId.toString());
+    }
+    
+    if (id == null) {
+      throw Exception('Geçersiz kargo ID\'si');
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    final result = await CargoService.updateCargo(
+      cargoId: id,
+      description: _descriptionController.text.trim(),
+      selfLatitude: double.parse(_selfLatController.text),
+      selfLongitude: double.parse(_selfLngController.text),
+      targetLatitude: double.parse(_targetLatController.text),
+      targetLongitude: double.parse(_targetLngController.text),
+      weight: double.parse(_weightController.text),
+      height: double.parse(_heightController.text),
+      size: _selectedSize,
+      phoneNumber: _phoneController.text.trim(),
+    );
 
-    try {
-      final result = await CargoService.updateCargo(
-        cargoId: widget.cargo['id'],
-        description: _descriptionController.text.trim(),
-        selfLatitude: double.parse(_selfLatController.text),
-        selfLongitude: double.parse(_selfLngController.text),
-        targetLatitude: double.parse(_targetLatController.text),
-        targetLongitude: double.parse(_targetLngController.text),
-        weight: double.parse(_weightController.text),
-        height: double.parse(_heightController.text),
-        size: _selectedSize,
-        phoneNumber: _phoneController.text.trim(),
+    if (result != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Kargo başarıyla güncellendi!'),
+          backgroundColor: Colors.green,
+        ),
       );
-
-      if (result != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Kargo başarıyla güncellendi!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context, true); // true ile geri dön (yenileme için)
-      } else {
-        _showErrorDialog('Kargo güncellenirken bir hata oluştu.');
-      }
-    } catch (e) {
-      _showErrorDialog('Bir hata oluştu: $e');
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      Navigator.pop(context, true); // true ile geri dön (yenileme için)
+    } else {
+      _showErrorDialog('Kargo güncellenirken bir hata oluştu.');
     }
+  } catch (e) {
+    _showErrorDialog('Bir hata oluştu: $e');
+  } finally {
+    setState(() {
+      _isLoading = false;
+    });
   }
+}
 
+// Uyarı kartını da güncelleyelim
+Widget _buildWarningCard() {
+  final status = CargoHelper.getCargoSituation(widget.cargo);
+  final canEdit = CargoHelper.canEdit(widget.cargo);
+  
+  return Card(
+    color: canEdit ? Colors.amber[50] : Colors.red[50],
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+      side: BorderSide(color: canEdit ? Colors.amber[300]! : Colors.red[300]!),
+    ),
+    child: Padding(
+      padding: EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Icon(
+            canEdit ? Icons.info : Icons.warning,
+            color: canEdit ? Colors.amber[800] : Colors.red[800],
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  canEdit 
+                    ? 'Kargo düzenlenebilir durumda.'
+                    : 'Bu kargo düzenlenemez!',
+                  style: TextStyle(
+                    color: canEdit ? Colors.amber[800] : Colors.red[800],
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  canEdit 
+                    ? 'Sadece "Oluşturuldu" durumundaki kargolar düzenlenebilir.'
+                    : 'Kargo durumu: ${CargoHelper.getStatusDisplayName(status)}. Sadece "Oluşturuldu" durumundaki kargolar düzenlenebilir.',
+                  style: TextStyle(
+                    color: canEdit ? Colors.amber[800] : Colors.red[800],
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
   void _showErrorDialog(String message) {
     showDialog(
       context: context,

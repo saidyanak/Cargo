@@ -128,13 +128,18 @@ public class DriverService {
 
 		Page<Cargo> cargoesPage = cargoRepository.findByDriverId(driver.getId(), pageable);
 		Page<CargoesResponse> cargoResponse = cargoesPage.map(cargo -> new CargoesResponse(
-				cargo.getId(),
-				new ResponseLocation(cargo.getSelfLocation().getLatitude(), cargo.getSelfLocation().getLongitude()),
-				new ResponseLocation(cargo.getTargetLocation().getLatitude(), cargo.getTargetLocation().getLongitude()),
-				new ResponseMeasure(cargo.getMeasure().getWeight(), cargo.getMeasure().getHeight(), cargo.getMeasure().getSize()),
-				cargo.getCargoSituation(), 
-				cargo.getPhoneNumber(), 
-				cargo.getDistributor().getPhoneNumber()));
+    		cargo.getId(),
+    		cargo.getDescription(),  // ✅ EKLE
+    		new ResponseLocation(cargo.getSelfLocation().getLatitude(), cargo.getSelfLocation().getLongitude()),
+    		new ResponseLocation(cargo.getTargetLocation().getLatitude(), cargo.getTargetLocation().getLongitude()),
+    		new ResponseMeasure(cargo.getMeasure().getWeight(), cargo.getMeasure().getHeight(), cargo.getMeasure().getSize()),
+    		cargo.getCargoSituation(),
+    		cargo.getPhoneNumber(), 
+    		cargo.getDistributor().getPhoneNumber(),
+    		cargo.getCreatedAt(),   // ✅ EKLE (Cargo entity'de bu alan varsa)
+    		cargo.getUpdatedAt(),   // ✅ EKLE
+    		cargo.getVerificationCode() // ✅ EKLE
+		));
 		return cargoResponse;
 	}
 
@@ -147,13 +152,18 @@ public class DriverService {
 		}
 		Page<Cargo> cargoes = cargoRepository.findAll(pageable);
 		Page<CargoesResponse> cargoResponse = cargoes.map(cargo -> new CargoesResponse(
-				cargo.getId(),
-				new ResponseLocation(cargo.getSelfLocation().getLatitude(), cargo.getSelfLocation().getLongitude()),
-				new ResponseLocation(cargo.getTargetLocation().getLatitude(), cargo.getTargetLocation().getLongitude()),
-				new ResponseMeasure(cargo.getMeasure().getWeight(), cargo.getMeasure().getHeight(), cargo.getMeasure().getSize()),
-				cargo.getCargoSituation(), 
-				cargo.getPhoneNumber(), 
-				cargo.getDistributor().getPhoneNumber()));
+		    cargo.getId(),
+		    cargo.getDescription(),  // ✅ EKLE
+		    new ResponseLocation(cargo.getSelfLocation().getLatitude(), cargo.getSelfLocation().getLongitude()),
+		    new ResponseLocation(cargo.getTargetLocation().getLatitude(), cargo.getTargetLocation().getLongitude()),
+		    new ResponseMeasure(cargo.getMeasure().getWeight(), cargo.getMeasure().getHeight(), cargo.getMeasure().getSize()),
+		    cargo.getCargoSituation(),
+		    cargo.getPhoneNumber(), 
+		    cargo.getDistributor().getPhoneNumber(),
+		    cargo.getCreatedAt(),   // ✅ EKLE (Cargo entity'de bu alan varsa)
+		    cargo.getUpdatedAt(),   // ✅ EKLE
+		    cargo.getVerificationCode() // ✅ EKLE
+		));
 		return cargoResponse;
 	}
 }

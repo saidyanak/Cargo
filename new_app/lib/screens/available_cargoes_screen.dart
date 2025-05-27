@@ -8,7 +8,8 @@ class AvailableCargoesScreen extends StatefulWidget {
   _AvailableCargoesScreenState createState() => _AvailableCargoesScreenState();
 }
 
-class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
+class _AvailableCargoesScreenState extends State<AvailableCargoesScreen>
+    with TickerProviderStateMixin {
   List<Map<String, dynamic>> _availableCargoes = [];
   bool _isLoading = true;
   String _searchQuery = '';
@@ -18,13 +19,64 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
+  // Animation controllers
+  late AnimationController _refreshController;
+  late AnimationController _searchAnimController;
+  late AnimationController _fadeController;
+  Animation<Offset>? _searchSlideAnimation;
+  Animation<double>? _fadeAnimation;
+
   final List<String> _sizeFilterOptions = ['Tümü', 'S', 'M', 'L', 'XL', 'XXL'];
 
   @override
   void initState() {
     super.initState();
-    _loadAvailableCargoes();
+    
+    // Initialize animations
+    _refreshController = AnimationController(
+      duration: Duration(seconds: 1),
+      vsync: this,
+    );
+    
+    _searchAnimController = AnimationController(
+      duration: Duration(milliseconds: 400),
+      vsync: this,
+    );
+    
+    _fadeController = AnimationController(
+      duration: Duration(milliseconds: 600),
+      vsync: this,
+    );
+    
+    _searchSlideAnimation = Tween<Offset>(
+      begin: Offset(0.0, -1.0),
+      end: Offset(0.0, 0.0),
+    ).animate(CurvedAnimation(
+      parent: _searchAnimController,
+      curve: Curves.easeOutBack,
+    ));
+    
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeInOut,
+    ));
+
+    // Scroll listener
     _scrollController.addListener(_onScroll);
+    
+    // Load data immediately - BU EKSİKTİ!
+    _loadAvailableCargoes();
+    
+    // Start animations
+    Future.delayed(Duration(milliseconds: 200), () {
+      if (mounted) {
+        _searchAnimController.forward();
+        _fadeController.forward();
+      }
+    });
   }
 
   void _onScroll() {
@@ -36,6 +88,8 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
   }
 
   Future<void> _loadAvailableCargoes() async {
+    print('=== LOADING AVAILABLE CARGOES ==='); // Debug log
+    
     setState(() {
       _isLoading = true;
       _currentPage = 0;
@@ -43,11 +97,16 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
       _hasMoreData = true;
     });
 
+    // Animate refresh icon
+    _refreshController.repeat();
+
     try {
       final result = await CargoService.getAllCargoes(
         page: _currentPage,
         size: 20,
       );
+      
+      print('Available cargoes result: $result'); // Debug log
       
       if (result != null) {
         final List<dynamic> cargoList = result['data'] ?? [];
@@ -58,9 +117,18 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
             .where((cargo) => cargo['cargoSituation'] == 'CREATED')
             .toList();
         
+        print('Found ${availableCargoes.length} available cargoes'); // Debug log
+        
         setState(() {
           _availableCargoes = availableCargoes.cast<Map<String, dynamic>>();
           _hasMoreData = !(meta['isLast'] ?? true);
+          _isLoading = false;
+        });
+      } else {
+        print('Result is null'); // Debug log
+        setState(() {
+          _availableCargoes = [];
+          _hasMoreData = false;
           _isLoading = false;
         });
       }
@@ -69,6 +137,24 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
       setState(() {
         _isLoading = false;
       });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 8),
+              Expanded(child: Text('Kargolar yüklenirken hata oluştu: $e')),
+            ],
+          ),
+          backgroundColor: Colors.red[600],
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          margin: EdgeInsets.all(16),
+        ),
+      );
+    } finally {
+      _refreshController.stop();
     }
   }
 
@@ -128,7 +214,25 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Center(child: CircularProgressIndicator()),
+      builder: (context) => Center(
+        child: Container(
+          padding: EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.grey[850]!, Colors.grey[900]!],
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: Colors.green[400]),
+              SizedBox(height: 16),
+              Text('Kargo alınıyor...', style: TextStyle(color: Colors.white)),
+            ],
+          ),
+        ),
+      ),
     );
 
     try {
@@ -138,16 +242,34 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Kargo başarıyla alındı!'),
-            backgroundColor: Colors.green,
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Kargo başarıyla alındı!'),
+              ],
+            ),
+            backgroundColor: Colors.green[600],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: EdgeInsets.all(16),
           ),
         );
         _loadAvailableCargoes(); // Listeyi yenile
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Kargo alınırken hata oluştu!'),
-            backgroundColor: Colors.red,
+            content: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Kargo alınırken hata oluştu!'),
+              ],
+            ),
+            backgroundColor: Colors.red[600],
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: EdgeInsets.all(16),
           ),
         );
       }
@@ -155,8 +277,17 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Bir hata oluştu: $e'),
-          backgroundColor: Colors.red,
+          content: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 8),
+              Expanded(child: Text('Bir hata oluştu: $e')),
+            ],
+          ),
+          backgroundColor: Colors.red[600],
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          margin: EdgeInsets.all(16),
         ),
       );
     }
@@ -166,43 +297,75 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Kargo Al'),
+        backgroundColor: Colors.grey[900],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.green[600]!, Colors.green[800]!],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.local_shipping, color: Colors.white, size: 24),
+            ),
+            SizedBox(width: 12),
+            Text('Kargo Al', style: TextStyle(color: Colors.white)),
+          ],
+        ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Bu kargoyu almak istediğinizden emin misiniz?'),
+              Text(
+                'Bu kargoyu almak istediğinizden emin misiniz?',
+                style: TextStyle(color: Colors.white70, fontSize: 16),
+              ),
               SizedBox(height: 16),
               Container(
-                padding: EdgeInsets.all(12),
+                padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
+                  gradient: LinearGradient(
+                    colors: [Colors.green[800]!.withOpacity(0.2), Colors.green[600]!.withOpacity(0.1)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.withOpacity(0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Açıklama:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    Row(
+                      children: [
+                        Icon(Icons.description, size: 16, color: Colors.green[400]),
+                        SizedBox(width: 4),
+                        Text('Açıklama:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                      ],
                     ),
-                    Text(cargo['description'] ?? 'Açıklama yok'),
+                    Text(cargo['description'] ?? 'Açıklama yok', style: TextStyle(color: Colors.white70)),
                     SizedBox(height: 8),
                     Row(
                       children: [
-                        Text('Ağırlık: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text(CargoHelper.formatWeight(cargo['measure']?['weight'])),
-                        Spacer(),
-                        Text('Boyut: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text(CargoHelper.getSizeDisplayName(cargo['measure']?['size'])),
+                        Icon(Icons.scale, size: 16, color: Colors.orange[400]),
+                        SizedBox(width: 4),
+                        Text('Ağırlık: ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                        Text(CargoHelper.formatWeight(cargo['measure']?['weight']), style: TextStyle(color: Colors.white70)),
+                        SizedBox(width: 16),
+                        Icon(Icons.aspect_ratio, size: 16, color: Colors.purple[400]),
+                        SizedBox(width: 4),
+                        Text('Boyut: ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                        Text(CargoHelper.getSizeDisplayName(cargo['measure']?['size']), style: TextStyle(color: Colors.white70)),
                       ],
                     ),
                     SizedBox(height: 4),
                     Row(
                       children: [
-                        Text('Telefon: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text(cargo['phoneNumber'] ?? ''),
+                        Icon(Icons.phone, size: 16, color: Colors.blue[400]),
+                        SizedBox(width: 4),
+                        Text('Telefon: ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                        Text(cargo['phoneNumber'] ?? '', style: TextStyle(color: Colors.white70)),
                       ],
                     ),
                   ],
@@ -214,149 +377,570 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('İptal'),
+            child: Text('İptal', style: TextStyle(color: Colors.grey[400])),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _takeCargo(cargo);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: Text('Kargoyu Al', style: TextStyle(color: Colors.white)),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.green[600]!, Colors.green[800]!],
+              ),
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _takeCargo(cargo);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+              ),
+              child: Text('Kargoyu Al', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCargoCard(Map<String, dynamic> cargo) {
-    return Card(
-      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CargoDetailScreen(cargo: cargo, isDriver: true),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Üst kısım - Başlık ve al butonu
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      cargo['description'] ?? 'Açıklama yok',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => _showTakeCargoDialog(cargo),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                    child: Text('Al', style: TextStyle(fontSize: 12)),
-                  ),
-                ],
-              ),
-              SizedBox(height: 12),
-              
-              // Bilgiler
-              Row(
-                children: [
-                  Icon(Icons.phone, size: 16, color: Colors.grey[600]),
-                  SizedBox(width: 4),
-                  Text(
-                    cargo['phoneNumber'] ?? '',
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                  Spacer(),
-                  Icon(Icons.scale, size: 16, color: Colors.grey[600]),
-                  SizedBox(width: 4),
-                  Text(
-                    CargoHelper.formatWeight(cargo['measure']?['weight']),
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-              SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.straighten, size: 16, color: Colors.grey[600]),
-                  SizedBox(width: 4),
-                  Text(
-                    CargoHelper.formatHeight(cargo['measure']?['height']),
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                  Spacer(),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      CargoHelper.getSizeDisplayName(cargo['measure']?['size']),
-                      style: TextStyle(
-                        color: Colors.blue,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 8),
-              
-              // Konum bilgisi
-              Row(
-                children: [
-                  Icon(Icons.location_on, size: 16, color: Colors.green[600]),
-                  SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      'Alınacak: ${cargo['selfLocation']?['latitude']?.toStringAsFixed(4) ?? 'N/A'}, ${cargo['selfLocation']?['longitude']?.toStringAsFixed(4) ?? 'N/A'}',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(Icons.flag, size: 16, color: Colors.red[600]),
-                  SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      'Teslim: ${cargo['targetLocation']?['latitude']?.toStringAsFixed(4) ?? 'N/A'}, ${cargo['targetLocation']?['longitude']?.toStringAsFixed(4) ?? 'N/A'}',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
+  Widget _buildCargoCard(Map<String, dynamic> cargo, int index) {
+    return TweenAnimationBuilder(
+      duration: Duration(milliseconds: 600 + (index * 100)),
+      tween: Tween<double>(begin: 0.0, end: 1.0),
+      builder: (context, double value, child) {
+        return Transform.translate(
+          offset: Offset(50 * (1 - value), 0),
+          child: Opacity(
+            opacity: value,
+            child: child,
+          ),
+        );
+      },
+      child: Container(
+        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.grey[850]!,
+              Colors.grey[900]!,
             ],
           ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 15,
+              offset: Offset(0, 8),
+            ),
+            BoxShadow(
+              color: Colors.green.withOpacity(0.1),
+              blurRadius: 20,
+              offset: Offset(0, 0),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CargoDetailScreen(cargo: cargo, isDriver: true),
+                ),
+              );
+            },
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Üst kısım - Başlık ve al butonu
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          cargo['description'] ?? 'Açıklama yok',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.green[600]!, Colors.green[800]!],
+                          ),
+                          borderRadius: BorderRadius.circular(25),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.green.withOpacity(0.4),
+                              blurRadius: 8,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => _showTakeCargoDialog(cargo),
+                            borderRadius: BorderRadius.circular(25),
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.add_circle, size: 18, color: Colors.white),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'AL',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16),
+                  
+                  // Info section
+                  Container(
+                    padding: EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey[700]!),
+                    ),
+                    child: Column(
+                      children: [
+                        // Contact and weight
+                        Row(
+                          children: [
+                            _buildInfoChip(
+                              Icons.phone,
+                              cargo['phoneNumber'] ?? 'Telefon yok',
+                              LinearGradient(colors: [Colors.blue[600]!, Colors.blue[800]!]),
+                            ),
+                            Spacer(),
+                            _buildInfoChip(
+                              Icons.scale,
+                              CargoHelper.formatWeight(cargo['measure']?['weight']),
+                              LinearGradient(colors: [Colors.orange[600]!, Colors.orange[800]!]),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 12),
+                        // Height and size
+                        Row(
+                          children: [
+                            _buildInfoChip(
+                              Icons.straighten,
+                              CargoHelper.formatHeight(cargo['measure']?['height']),
+                              LinearGradient(colors: [Colors.purple[600]!, Colors.purple[800]!]),
+                            ),
+                            Spacer(),
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [Colors.indigo[600]!, Colors.indigo[800]!],
+                                ),
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.indigo.withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.aspect_ratio, size: 16, color: Colors.white),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    CargoHelper.getSizeDisplayName(cargo['measure']?['size']),
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  SizedBox(height: 16),
+                  
+                  // Konum bilgisi
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.teal[900]!.withOpacity(0.3), Colors.teal[800]!.withOpacity(0.1)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.teal.withOpacity(0.3)),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.location_on, size: 16, color: Colors.green[400]),
+                            SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Alınacak: ${cargo['selfLocation']?['latitude']?.toStringAsFixed(4) ?? 'N/A'}, ${cargo['selfLocation']?['longitude']?.toStringAsFixed(4) ?? 'N/A'}',
+                                style: TextStyle(color: Colors.white70, fontSize: 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(Icons.flag, size: 16, color: Colors.red[400]),
+                            SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Teslim: ${cargo['targetLocation']?['latitude']?.toStringAsFixed(4) ?? 'N/A'}, ${cargo['targetLocation']?['longitude']?.toStringAsFixed(4) ?? 'N/A'}',
+                                style: TextStyle(color: Colors.white70, fontSize: 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  SizedBox(height: 16),
+                  
+                  // Action section
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CargoDetailScreen(cargo: cargo, isDriver: true),
+                            ),
+                          );
+                        },
+                        icon: Icon(Icons.visibility, size: 16, color: Colors.teal[400]),
+                        label: Text('Detayları Görüntüle', style: TextStyle(color: Colors.teal[400])),
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.teal.withOpacity(0.1),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoChip(IconData icon, String text, LinearGradient gradient) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: gradient.colors.first.withOpacity(0.3),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Colors.white),
+          SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchSection() {
+    if (_searchSlideAnimation == null) {
+      return Container(
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.grey[850]!, Colors.grey[900]!],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: _buildSearchContent(),
+      );
+    }
+
+    return SlideTransition(
+      position: _searchSlideAnimation!,
+      child: Container(
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.grey[850]!, Colors.grey[900]!],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: _buildSearchContent(),
+      ),
+    );
+  }
+
+  Widget _buildSearchContent() {
+    return Column(
+      children: [
+        // Arama kutusu
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.grey[800]!, Colors.grey[700]!],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[600]!),
+          ),
+          child: TextField(
+            controller: _searchController,
+            style: TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Kargo ara...',
+              hintStyle: TextStyle(color: Colors.white60),
+              prefixIcon: Icon(Icons.search, color: Colors.white70),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+            onChanged: (value) {
+              setState(() {
+                _searchQuery = value;
+              });
+            },
+          ),
+        ),
+        SizedBox(height: 12),
+        
+        // Boyut filtresi
+        Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.teal[600]!, Colors.teal[800]!],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.filter_list, color: Colors.white, size: 20),
+            ),
+            SizedBox(width: 12),
+            Text(
+              'Boyut Filtresi:',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.grey[800]!, Colors.grey[700]!],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[600]!),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedSizeFilter,
+                    isExpanded: true,
+                    dropdownColor: Colors.grey[800],
+                    icon: Icon(Icons.keyboard_arrow_down, color: Colors.teal[400]),
+                    style: TextStyle(color: Colors.white),
+                    items: _sizeFilterOptions.map((size) {
+                      return DropdownMenuItem(
+                        value: size,
+                        child: Text(
+                          size == 'Tümü' ? size : CargoHelper.getSizeDisplayName(size),
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedSizeFilter = value!;
+                      });
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    if (_fadeAnimation == null) {
+      return Center(child: CircularProgressIndicator(color: Colors.green[400]));
+    }
+
+    return FadeTransition(
+      opacity: _fadeAnimation!,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TweenAnimationBuilder(
+              duration: Duration(seconds: 2),
+              tween: Tween<double>(begin: 0.0, end: 1.0),
+              builder: (context, double value, child) {
+                return Transform.scale(
+                  scale: 0.8 + (0.2 * value),
+                  child: Container(
+                    padding: EdgeInsets.all(30),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.green[800]!.withOpacity(0.2), Colors.green[600]!.withOpacity(0.1)],
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.withOpacity(0.3),
+                          blurRadius: 20,
+                          offset: Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      _searchQuery.isNotEmpty || _selectedSizeFilter != 'Tümü'
+                          ? Icons.search_off 
+                          : Icons.inventory_2_outlined,
+                      size: 80,
+                      color: Colors.green[400],
+                    ),
+                  ),
+                );
+              },
+            ),
+            SizedBox(height: 24),
+            Text(
+              _searchQuery.isNotEmpty || _selectedSizeFilter != 'Tümü'
+                  ? 'Arama kriterlerinize uygun kargo bulunamadı'
+                  : 'Şu anda mevcut kargo yok',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 8),
+            Text(
+              _searchQuery.isNotEmpty || _selectedSizeFilter != 'Tümü'
+                  ? 'Farklı bir filtre deneyin'
+                  : 'Yeni kargolar eklendiğinde burada görünecek',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (_searchQuery.isNotEmpty || _selectedSizeFilter != 'Tümü') ...[
+              SizedBox(height: 32),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.teal[600]!, Colors.teal[800]!],
+                  ),
+                  borderRadius: BorderRadius.circular(25),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.teal.withOpacity(0.4),
+                      blurRadius: 15,
+                      offset: Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _searchQuery = '';
+                      _selectedSizeFilter = 'Tümü';
+                      _searchController.clear();
+                    });
+                  },
+                  icon: Icon(Icons.clear_all, color: Colors.white),
+                  label: Text('Filtreleri Temizle', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -367,99 +951,60 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
     final filteredCargoes = _getFilteredCargoes();
 
     return Scaffold(
+      backgroundColor: Colors.grey[900],
       appBar: AppBar(
-        title: Text('Mevcut Kargolar'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
+        title: Text(
+          'Mevcut Kargolar',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.green[600]!, Colors.green[800]!],
+            ),
+          ),
+        ),
         actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: _loadAvailableCargoes,
+          RotationTransition(
+            turns: _refreshController,
+            child: IconButton(
+              icon: Icon(Icons.refresh, color: Colors.white),
+              onPressed: _loadAvailableCargoes,
+              tooltip: 'Yenile',
+            ),
           ),
         ],
       ),
       body: Column(
         children: [
-          // Arama ve filtre
-          Container(
-            padding: EdgeInsets.all(16),
-            color: Colors.grey[100],
-            child: Column(
-              children: [
-                // Arama kutusu
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Kargo ara...',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                    });
-                  },
-                ),
-                SizedBox(height: 12),
-                
-                // Boyut filtresi
-                Row(
-                  children: [
-                    Text(
-                      'Boyut Filtresi:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey[300]!),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedSizeFilter,
-                            isExpanded: true,
-                            items: _sizeFilterOptions.map((size) {
-                              return DropdownMenuItem(
-                                value: size,
-                                child: Text(size == 'Tümü' ? size : CargoHelper.getSizeDisplayName(size)),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedSizeFilter = value!;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          // Search and filter section
+          _buildSearchSection(),
           
-          // Sonuç sayısı
+          // Results count
           if (!_isLoading || _availableCargoes.isNotEmpty)
             Container(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              color: Colors.grey[900],
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '${filteredCargoes.length} kargo bulundu',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 14,
-                    ),
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 16, color: Colors.green[400]),
+                      SizedBox(width: 6),
+                      Text(
+                        '${filteredCargoes.length} kargo bulundu',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                   if (_searchQuery.isNotEmpty || _selectedSizeFilter != 'Tümü')
                     TextButton(
@@ -470,68 +1015,56 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
                           _searchController.clear();
                         });
                       },
-                      child: Text('Filtreleri Temizle'),
+                      child: Text('Filtreleri Temizle', style: TextStyle(color: Colors.teal[400])),
                     ),
                 ],
               ),
             ),
           
-          // Kargo listesi
+          // Cargo list
           Expanded(
-            child: RefreshIndicator(
-              onRefresh: _loadAvailableCargoes,
-              child: _isLoading && _availableCargoes.isEmpty
-                  ? Center(child: CircularProgressIndicator())
-                  : filteredCargoes.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.inbox_outlined,
-                                size: 80,
-                                color: Colors.grey[400],
+            child: Container(
+              color: Colors.grey[900],
+              child: RefreshIndicator(
+                onRefresh: _loadAvailableCargoes,
+                color: Colors.green[400],
+                backgroundColor: Colors.grey[800],
+                child: _isLoading && _availableCargoes.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(color: Colors.green[400]),
+                            SizedBox(height: 16),
+                            Text(
+                              'Kargolar yükleniyor...',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 16,
                               ),
-                              SizedBox(height: 16),
-                              Text(
-                                _searchQuery.isNotEmpty || _selectedSizeFilter != 'Tümü'
-                                    ? 'Arama kriterlerinize uygun kargo bulunamadı'
-                                    : 'Şu anda mevcut kargo yok',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.grey[600],
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              if (_searchQuery.isNotEmpty || _selectedSizeFilter != 'Tümü') ...[
-                                SizedBox(height: 16),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _searchQuery = '';
-                                      _selectedSizeFilter = 'Tümü';
-                                      _searchController.clear();
-                                    });
-                                  },
-                                  child: Text('Filtreleri Temizle'),
-                                ),
-                              ],
-                            ],
-                          ),
-                        )
-                      : ListView.builder(
-                          controller: _scrollController,
-                          itemCount: filteredCargoes.length + (_hasMoreData && _isLoading ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (index == filteredCargoes.length) {
-                              return Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Center(child: CircularProgressIndicator()),
-                              );
-                            }
-                            return _buildCargoCard(filteredCargoes[index]);
-                          },
+                            ),
+                          ],
                         ),
+                      )
+                    : filteredCargoes.isEmpty
+                        ? _buildEmptyState()
+                        : ListView.builder(
+                            controller: _scrollController,
+                            padding: EdgeInsets.only(top: 8, bottom: 16),
+                            itemCount: filteredCargoes.length + (_hasMoreData && _isLoading ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (index == filteredCargoes.length) {
+                                return Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Center(
+                                    child: CircularProgressIndicator(color: Colors.green[400]),
+                                  ),
+                                );
+                              }
+                              return _buildCargoCard(filteredCargoes[index], index);
+                            },
+                          ),
+              ),
             ),
           ),
         ],
@@ -543,6 +1076,9 @@ class _AvailableCargoesScreenState extends State<AvailableCargoesScreen> {
   void dispose() {
     _searchController.dispose();
     _scrollController.dispose();
+    _refreshController.dispose();
+    _searchAnimController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 }
