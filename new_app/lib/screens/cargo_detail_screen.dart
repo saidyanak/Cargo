@@ -561,211 +561,227 @@ class _CargoDetailScreenState extends State<CargoDetailScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final status = _cargo['cargoSituation'] ?? 'CREATED';
-    final statusColor = CargoHelper.getStatusColor(status);
-    final statusText = CargoHelper.getStatusDisplayName(status);
+Widget build(BuildContext context) {
+  final status = CargoHelper.getCargoSituation(_cargo); // GÜVENLİ ERİŞİM
+  final statusColor = CargoHelper.getStatusColor(status);
+  final statusText = CargoHelper.getStatusDisplayName(status);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Kargo Detayları'),
-        backgroundColor: statusColor,
-        foregroundColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Durum kartı
-            Card(
-              elevation: 8,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: Container(
-                padding: EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: LinearGradient(
-                    colors: [statusColor.withOpacity(0.7), statusColor],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+  return Scaffold(
+    appBar: AppBar(
+      title: Text('Kargo Detayları'),
+      backgroundColor: statusColor,
+      foregroundColor: Colors.white,
+    ),
+    body: SingleChildScrollView(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Durum kartı - GÜNCELLEME
+          Card(
+            elevation: 8,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Container(
+              padding: EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: [statusColor.withOpacity(0.7), statusColor],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                child: Column(
+              ),
+              child: Column(
+                children: [
+                  Icon(CargoHelper.getStatusIcon(status), size: 60, color: Colors.white),
+                  SizedBox(height: 16),
+                  Text(
+                    statusText,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Kargo ID: ${CargoHelper.getCargoId(_cargo)}', // GÜVENLİ ERİŞİM
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: 20),
+
+          // Harita kartı
+          _buildMapCard(),
+          SizedBox(height: 16),
+
+          // Açıklama kartı - GÜNCELLEME
+          _buildInfoCard(
+            'Kargo Açıklaması',
+            Text(
+              CargoHelper.getDescription(_cargo), // GÜVENLİ ERİŞİM
+              style: TextStyle(fontSize: 16),
+            ),
+            color: Colors.blue,
+          ),
+          SizedBox(height: 16),
+
+          // İletişim bilgileri - GÜNCELLEME
+          _buildInfoCard(
+            'İletişim Bilgileri',
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Icon(CargoHelper.getStatusIcon(status), size: 60, color: Colors.white),
-                    SizedBox(height: 16),
+                    Icon(Icons.phone, color: Colors.green),
+                    SizedBox(width: 8),
                     Text(
-                      statusText,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                      'Müşteri: ${CargoHelper.getPhoneNumber(_cargo)}', // GÜVENLİ ERİŞİM
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.business, color: Colors.blue),
+                    SizedBox(width: 8),
+                    Text(
+                      'Gönderici: ${CargoHelper.getDistributorPhone(_cargo)}', // GÜVENLİ ERİŞİM
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            color: Colors.green,
+          ),
+          SizedBox(height: 16),
+
+          // Ölçüler kartı - GÜNCELLEME
+          _buildInfoCard(
+            'Kargo Ölçüleri',
+            Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Icon(Icons.scale, color: Colors.orange),
+                          SizedBox(height: 4),
+                          Text(
+                            CargoHelper.formatWeight(CargoHelper.getMeasure(_cargo)['weight']), // GÜVENLİ ERİŞİM
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text('Ağırlık', style: TextStyle(color: Colors.grey[600])),
+                        ],
                       ),
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Kargo ID: ${_cargo['id'] ?? 'N/A'}',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 16,
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Icon(Icons.straighten, color: Colors.purple),
+                          SizedBox(height: 4),
+                          Text(
+                            CargoHelper.formatHeight(CargoHelper.getMeasure(_cargo)['height']), // GÜVENLİ ERİŞİM
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text('Yükseklik', style: TextStyle(color: Colors.grey[600])),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Icon(Icons.aspect_ratio, color: Colors.red),
+                          SizedBox(height: 4),
+                          Text(
+                            CargoHelper.getSizeDisplayName(CargoHelper.getMeasure(_cargo)['size']), // GÜVENLİ ERİŞİM
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text('Boyut', style: TextStyle(color: Colors.grey[600])),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
+              ],
             ),
-            SizedBox(height: 20),
+            color: Colors.orange,
+          ),
+          SizedBox(height: 16),
 
-            // Harita kartı
-            _buildMapCard(),
-            SizedBox(height: 16),
+          // Durum zaman çizelgesi
+          _buildInfoCard(
+            'Kargo Durumu',
+            _buildStatusTimeline(),
+            color: statusColor,
+          ),
+          SizedBox(height: 24),
 
-            // Açıklama kartı
-            _buildInfoCard(
-              'Kargo Açıklaması',
-              Text(
-                _cargo['description'] ?? 'Açıklama yok',
-                style: TextStyle(fontSize: 16),
-              ),
-              color: Colors.blue,
-            ),
-            SizedBox(height: 16),
-
-            // İletişim bilgileri
-            _buildInfoCard(
-              'İletişim Bilgileri',
-              Row(
-                children: [
-                  Icon(Icons.phone, color: Colors.green),
-                  SizedBox(width: 8),
-                  Text(
-                    _cargo['phoneNumber'] ?? 'Telefon yok',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ],
-              ),
-              color: Colors.green,
-            ),
-            SizedBox(height: 16),
-
-            // Ölçüler kartı
-            _buildInfoCard(
-              'Kargo Ölçüleri',
-              Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Icon(Icons.scale, color: Colors.orange),
-                            SizedBox(height: 4),
-                            Text(
-                              CargoHelper.formatWeight(_cargo['measure']?['weight']),
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text('Ağırlık', style: TextStyle(color: Colors.grey[600])),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Icon(Icons.straighten, color: Colors.purple),
-                            SizedBox(height: 4),
-                            Text(
-                              CargoHelper.formatHeight(_cargo['measure']?['height']),
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text('Yükseklik', style: TextStyle(color: Colors.grey[600])),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Icon(Icons.aspect_ratio, color: Colors.red),
-                            SizedBox(height: 4),
-                            Text(
-                              CargoHelper.getSizeDisplayName(_cargo['measure']?['size']),
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text('Boyut', style: TextStyle(color: Colors.grey[600])),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              color: Colors.orange,
-            ),
-            SizedBox(height: 16),
-
-            // Durum zaman çizelgesi
-            _buildInfoCard(
-              'Kargo Durumu',
-              _buildStatusTimeline(),
-              color: statusColor,
-            ),
-            SizedBox(height: 24),
-
-            // Aksiyon butonları
-            if (widget.isDriver && status == 'CREATED')
-              ElevatedButton(
-                onPressed: _showTakeCargoDialog,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Text(
-                  'Kargoyu Al',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          // Aksiyon butonları - GÜNCELLEME
+          if (widget.isDriver && CargoHelper.canTake(_cargo)) // GÜVENLİ KONTROL
+            ElevatedButton(
+              onPressed: _showTakeCargoDialog,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
+              child: Text(
+                'Kargoyu Al',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
 
-            if (widget.isDriver && status == 'PICKED_UP')
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => DeliveryScreen(cargo: _cargo),
-                    ),
-                  ).then((_) {
-                    Navigator.pop(context, true);
-                  });
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+          if (widget.isDriver && CargoHelper.canDeliver(_cargo)) // GÜVENLİ KONTROL
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DeliveryScreen(cargo: _cargo),
                   ),
-                ),
-                child: Text(
-                  'Teslim Et',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ).then((_) {
+                  Navigator.pop(context, true);
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-          ],
-        ),
+              child: Text(
+                'Teslim Et',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 }

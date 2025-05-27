@@ -1,11 +1,11 @@
-import 'package:cargo_app/utils/cargo_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geocoding/geocoding.dart';
 import '../services/cargo_service.dart';
 import '../services/location_service.dart';
+import '../utils/cargo_helper.dart';
 import 'map_selection_screen.dart';
-
 
 class AddCargoScreen extends StatefulWidget {
   @override
@@ -19,6 +19,10 @@ class _AddCargoScreenState extends State<AddCargoScreen> {
   final _weightController = TextEditingController();
   final _heightController = TextEditingController();
   
+  // Adres input controllers
+  final _selfAddressController = TextEditingController();
+  final _targetAddressController = TextEditingController();
+  
   String _selectedSize = 'M';
   bool _isLoading = false;
 
@@ -26,116 +30,140 @@ class _AddCargoScreenState extends State<AddCargoScreen> {
   double? _selfLatitude;
   double? _selfLongitude;
   String? _selfAddress;
+  String _selfLocationMethod = 'none'; // 'none', 'current', 'address', 'map'
   
   double? _targetLatitude;
   double? _targetLongitude;
   String? _targetAddress;
+  String _targetLocationMethod = 'none'; // 'none', 'current', 'address', 'map'
 
   final List<String> _sizeOptions = ['S', 'M', 'L', 'XL', 'XXL'];
 
   @override
   void initState() {
     super.initState();
-    _getCurrentLocationAutomatically();
+    // Otomatik olarak mevcut konumu almasın, kullanıcı seçsin
   }
 
-  Future<void> _getCurrentLocationAutomatically() async {
-  try {
-    final position = await LocationService.getCurrentLocation();
-    if (position != null) {
+  // 🎯 Method 1: Mevcut konumu al
+  Future<void> _getCurrentLocation(bool isPickup) async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final position = await LocationService.getCurrentLocation();
+      if (position != null) {
+        // Koordinatları kaydet
+        setState(() {
+          if (isPickup) {
+            _selfLatitude = position.latitude;
+            _selfLongitude = position.longitude;
+            _selfLocationMethod = 'current';
+            _selfAddressController.clear(); // Adres input'u temizle
+          } else {
+            _targetLatitude = position.latitude;
+            _targetLongitude = position.longitude;
+            _targetLocationMethod = 'current';
+            _targetAddressController.clear();
+          }
+        });
+
+        // Adres çevirmeyi dene
+        try {
+          final address = await LocationService.getAddressFromCoordinates(
+            position.latitude, 
+            position.longitude,
+          );
+          
+          setState(() {
+            if (isPickup) {
+              _selfAddress = address;
+            } else {
+              _targetAddress = address;
+            }
+          });
+        } catch (e) {
+          print('Adres çevirme hatası: $e');
+          setState(() {
+            if (isPickup) {
+              _selfAddress = 'Koordinatlar: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+            } else {
+              _targetAddress = 'Koordinatlar: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+            }
+          });
+        }
+
+        _showSuccessMessage('Mevcut konum başarıyla alındı!');
+      } else {
+        _showErrorDialog('Konum alınamadı. Lütfen konum izinlerini kontrol edin.');
+      }
+    } catch (e) {
+      _showErrorDialog('Konum alma hatası: $e');
+    } finally {
       setState(() {
-        _selfLatitude = position.latitude;
-        _selfLongitude = position.longitude;
+        _isLoading = false;
       });
+    }
+  }
+
+  // 🎯 Method 2: Adres girişinden koordinat al
+  Future<void> _getLocationFromAddress(bool isPickup) async {
+    final addressController = isPickup ? _selfAddressController : _targetAddressController;
+    final address = addressController.text.trim();
+    
+    if (address.isEmpty) {
+      _showErrorDialog('Lütfen adres girin');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final locations = await LocationService.getCoordinatesFromAddress(address);
       
-      // Adres almayı ayrı try-catch'e al
-      try {
-        final address = await LocationService.getAddressFromCoordinates(
-          position.latitude, 
-          position.longitude,
-        );
+      if (locations.isNotEmpty) {
+        final location = locations.first;
         
         setState(() {
-          _selfAddress = address;
+          if (isPickup) {
+            _selfLatitude = location.latitude;
+            _selfLongitude = location.longitude;
+            _selfAddress = address;
+            _selfLocationMethod = 'address';
+          } else {
+            _targetLatitude = location.latitude;
+            _targetLongitude = location.longitude;
+            _targetAddress = address;
+            _targetLocationMethod = 'address';
+          }
         });
-      } catch (e) {
-        print('Adres alma hatası: $e');
-        setState(() {
-          _selfAddress = 'Koordinatlar: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
-        });
+
+        _showSuccessMessage('Adres başarıyla koordinatlara çevrildi!');
+      } else {
+        _showErrorDialog('Adres bulunamadı. Lütfen geçerli bir adres girin.');
       }
-    }
-  } catch (e) {
-    print('Otomatik konum alma hatası: $e');
-  }
-}
-
-Future<void> _getCurrentLocation(bool isPickup) async {
-  setState(() {
-    _isLoading = true;
-  });
-
-  try {
-    final position = await LocationService.getCurrentLocation();
-    if (position != null) {
-      // Önce koordinatları kaydet
+    } catch (e) {
+      _showErrorDialog('Adres çevirme hatası: $e');
+    } finally {
       setState(() {
-        if (isPickup) {
-          _selfLatitude = position.latitude;
-          _selfLongitude = position.longitude;
-        } else {
-          _targetLatitude = position.latitude;
-          _targetLongitude = position.longitude;
-        }
+        _isLoading = false;
       });
-
-      // Adres çevirmeyi ayrı try-catch'e al
-      String address;
-      try {
-        address = await LocationService.getAddressFromCoordinates(
-          position.latitude, 
-          position.longitude,
-        );
-      } catch (e) {
-        print('Adres çevirme hatası: $e');
-        address = 'Koordinatlar: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
-      }
-      
-      setState(() {
-        if (isPickup) {
-          _selfAddress = address;
-        } else {
-          _targetAddress = address;
-        }
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Konum başarıyla alındı!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } else {
-      _showErrorDialog('Konum alınamadı. Lütfen konum izinlerini kontrol edin.');
     }
-  } catch (e) {
-    _showErrorDialog('Konum alma hatası: $e');
-  } finally {
-    setState(() {
-      _isLoading = false;
-    });
   }
-}
 
-  // Harita üzerinden konum seç
+  // 🎯 Method 3: Harita üzerinden konum seç
   Future<void> _selectLocationOnMap(bool isPickup) async {
-    final initialLocation = isPickup
-        ? (_selfLatitude != null && _selfLongitude != null
-            ? LatLng(_selfLatitude!, _selfLongitude!)
-            : null)
-        : (_targetLatitude != null && _targetLongitude != null
-            ? LatLng(_targetLatitude!, _targetLongitude!)
-            : null);
+    // Mevcut konumu başlangıç noktası olarak kullan
+    LatLng? initialLocation;
+    
+    if (isPickup && _selfLatitude != null && _selfLongitude != null) {
+      initialLocation = LatLng(_selfLatitude!, _selfLongitude!);
+    } else if (!isPickup && _targetLatitude != null && _targetLongitude != null) {
+      initialLocation = LatLng(_targetLatitude!, _targetLongitude!);
+    }
 
     final selectedLocation = await Navigator.push<LatLng>(
       context,
@@ -153,37 +181,74 @@ Future<void> _getCurrentLocation(bool isPickup) async {
       });
 
       try {
-        final address = await LocationService.getAddressFromCoordinates(
-          selectedLocation.latitude,
-          selectedLocation.longitude,
-        );
-
+        // Koordinatları kaydet
         setState(() {
           if (isPickup) {
             _selfLatitude = selectedLocation.latitude;
             _selfLongitude = selectedLocation.longitude;
-            _selfAddress = address;
+            _selfLocationMethod = 'map';
+            _selfAddressController.clear(); // Adres input'u temizle
           } else {
             _targetLatitude = selectedLocation.latitude;
             _targetLongitude = selectedLocation.longitude;
-            _targetAddress = address;
+            _targetLocationMethod = 'map';
+            _targetAddressController.clear();
           }
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Konum seçildi!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        // Adres çevirmeyi dene
+        try {
+          final address = await LocationService.getAddressFromCoordinates(
+            selectedLocation.latitude,
+            selectedLocation.longitude,
+          );
+
+          setState(() {
+            if (isPickup) {
+              _selfAddress = address;
+            } else {
+              _targetAddress = address;
+            }
+          });
+        } catch (e) {
+          print('Adres çevirme hatası: $e');
+          setState(() {
+            if (isPickup) {
+              _selfAddress = 'Haritadan seçilen konum: ${selectedLocation.latitude.toStringAsFixed(6)}, ${selectedLocation.longitude.toStringAsFixed(6)}';
+            } else {
+              _targetAddress = 'Haritadan seçilen konum: ${selectedLocation.latitude.toStringAsFixed(6)}, ${selectedLocation.longitude.toStringAsFixed(6)}';
+            }
+          });
+        }
+
+        _showSuccessMessage('Konum haritadan başarıyla seçildi!');
       } catch (e) {
-        _showErrorDialog('Adres bilgisi alınamadı: $e');
+        _showErrorDialog('Harita seçimi hatası: $e');
       } finally {
         setState(() {
           _isLoading = false;
         });
       }
     }
+  }
+
+  // Konumu temizle
+  void _clearLocation(bool isPickup) {
+    setState(() {
+      if (isPickup) {
+        _selfLatitude = null;
+        _selfLongitude = null;
+        _selfAddress = null;
+        _selfLocationMethod = 'none';
+        _selfAddressController.clear();
+      } else {
+        _targetLatitude = null;
+        _targetLongitude = null;
+        _targetAddress = null;
+        _targetLocationMethod = 'none';
+        _targetAddressController.clear();
+      }
+    });
   }
 
   Future<void> _addCargo() async {
@@ -221,12 +286,7 @@ Future<void> _getCurrentLocation(bool isPickup) async {
       );
 
       if (result != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Kargo başarıyla eklendi!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _showSuccessMessage('Kargo başarıyla eklendi!');
         Navigator.pop(context, true);
       } else {
         _showErrorDialog('Kargo eklenirken bir hata oluştu.');
@@ -244,7 +304,13 @@ Future<void> _getCurrentLocation(bool isPickup) async {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Hata'),
+        title: Row(
+          children: [
+            Icon(Icons.error, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Hata'),
+          ],
+        ),
         content: Text(message),
         actions: [
           TextButton(
@@ -252,6 +318,24 @@ Future<void> _getCurrentLocation(bool isPickup) async {
             child: Text('Tamam'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showSuccessMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
@@ -264,6 +348,8 @@ Future<void> _getCurrentLocation(bool isPickup) async {
     required double? latitude,
     required double? longitude,
     required String? address,
+    required String locationMethod,
+    required TextEditingController addressController,
   }) {
     return Card(
       elevation: 4,
@@ -275,18 +361,30 @@ Future<void> _getCurrentLocation(bool isPickup) async {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Başlık
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(icon, color: color, size: 24),
-                SizedBox(width: 8),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
+                Row(
+                  children: [
+                    Icon(icon, color: color, size: 24),
+                    SizedBox(width: 8),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                  ],
                 ),
+                if (locationMethod != 'none')
+                  IconButton(
+                    onPressed: () => _clearLocation(isPickup),
+                    icon: Icon(Icons.clear, color: Colors.red),
+                    tooltip: 'Konumu Temizle',
+                  ),
               ],
             ),
             SizedBox(height: 16),
@@ -298,51 +396,103 @@ Future<void> _getCurrentLocation(bool isPickup) async {
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: color.withOpacity(0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.check_circle, color: color, size: 16),
-                        SizedBox(width: 4),
+                        Icon(Icons.check_circle, color: color, size: 18),
+                        SizedBox(width: 8),
                         Text(
-                          'Konum Seçildi',
+                          _getLocationMethodText(locationMethod),
                           style: TextStyle(
                             color: color,
                             fontWeight: FontWeight.bold,
+                            fontSize: 14,
                           ),
                         ),
                       ],
                     ),
                     SizedBox(height: 8),
                     if (address != null) ...[
-                      Text(
-                        address,
-                        style: TextStyle(fontSize: 14),
+                      Row(
+                        children: [
+                          Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
+                          SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              address,
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          ),
+                        ],
                       ),
                       SizedBox(height: 4),
                     ],
-                    Text(
-                      'Koordinatlar: ${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
+                    Row(
+                      children: [
+                        Icon(Icons.my_location, size: 16, color: Colors.grey[600]),
+                        SizedBox(width: 4),
+                        Text(
+                          '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
+              SizedBox(height: 16),
+            ],
+            
+            // Adres girişi
+            if (locationMethod == 'none' || locationMethod == 'address') ...[
+              TextFormField(
+                controller: addressController,
+                decoration: InputDecoration(
+                  labelText: 'Adres Girin',
+                  hintText: 'Örn: Taksim Meydanı, İstanbul',
+                  prefixIcon: Icon(Icons.edit_location_alt),
+                  suffixIcon: addressController.text.isNotEmpty
+                      ? IconButton(
+                          onPressed: () => _getLocationFromAddress(isPickup),
+                          icon: Icon(Icons.search, color: color),
+                          tooltip: 'Adresi Ara',
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: color, width: 2),
+                  ),
+                ),
+                onChanged: (value) {
+                  setState(() {}); // Suffıx icon için rebuild
+                },
+                onFieldSubmitted: (value) {
+                  if (value.trim().isNotEmpty) {
+                    _getLocationFromAddress(isPickup);
+                  }
+                },
+              ),
               SizedBox(height: 12),
             ],
             
-            // Butonlar
+            // Konum seçim butonları
             Row(
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: _isLoading ? null : () => _getCurrentLocation(isPickup),
-                    icon: Icon(Icons.my_location, size: 16),
+                    icon: Icon(Icons.my_location, size: 18),
                     label: Text('Mevcut Konum'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: color,
@@ -350,6 +500,7 @@ Future<void> _getCurrentLocation(bool isPickup) async {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
+                      padding: EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
                 ),
@@ -357,23 +508,57 @@ Future<void> _getCurrentLocation(bool isPickup) async {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _isLoading ? null : () => _selectLocationOnMap(isPickup),
-                    icon: Icon(Icons.map, size: 16),
+                    icon: Icon(Icons.map, size: 18),
                     label: Text('Haritadan Seç'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: color,
-                      side: BorderSide(color: color),
+                      side: BorderSide(color: color, width: 2),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
+                      padding: EdgeInsets.symmetric(vertical: 12),
                     ),
                   ),
                 ),
               ],
             ),
+            
+            if (addressController.text.isNotEmpty && locationMethod != 'address') ...[
+              SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _isLoading ? null : () => _getLocationFromAddress(isPickup),
+                  icon: Icon(Icons.search, size: 18),
+                  label: Text('Bu Adresi Ara'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.orange,
+                    side: BorderSide(color: Colors.orange, width: 2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  String _getLocationMethodText(String method) {
+    switch (method) {
+      case 'current':
+        return '📍 Mevcut Konum Kullanıldı';
+      case 'address':
+        return '🔍 Adresten Bulundu';
+      case 'map':
+        return '🗺️ Haritadan Seçildi';
+      default:
+        return 'Konum Seçilmedi';
+    }
   }
 
   @override
@@ -383,6 +568,7 @@ Future<void> _getCurrentLocation(bool isPickup) async {
         title: Text('Kargo Ekle'),
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
+        elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16),
@@ -541,30 +727,25 @@ Future<void> _getCurrentLocation(bool isPickup) async {
                         ),
                       ),
                       SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey[300]!),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedSize,
-                          decoration: InputDecoration(
-                            prefixIcon: Icon(Icons.aspect_ratio),
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      DropdownButtonFormField<String>(
+                        value: _selectedSize,
+                        decoration: InputDecoration(
+                          prefixIcon: Icon(Icons.aspect_ratio),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          items: _sizeOptions.map((size) {
-                            return DropdownMenuItem(
-                              value: size,
-                              child: Text(CargoHelper.getSizeDisplayName(size)),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedSize = value!;
-                            });
-                          },
                         ),
+                        items: _sizeOptions.map((size) {
+                          return DropdownMenuItem(
+                            value: size,
+                            child: Text(CargoHelper.getSizeDisplayName(size)),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedSize = value!;
+                          });
+                        },
                       ),
                     ],
                   ),
@@ -581,6 +762,8 @@ Future<void> _getCurrentLocation(bool isPickup) async {
                 latitude: _selfLatitude,
                 longitude: _selfLongitude,
                 address: _selfAddress,
+                locationMethod: _selfLocationMethod,
+                addressController: _selfAddressController,
               ),
               SizedBox(height: 16),
               
@@ -593,33 +776,56 @@ Future<void> _getCurrentLocation(bool isPickup) async {
                 latitude: _targetLatitude,
                 longitude: _targetLongitude,
                 address: _targetAddress,
+                locationMethod: _targetLocationMethod,
+                addressController: _targetAddressController,
               ),
               SizedBox(height: 24),
               
               // Kaydet butonu
-              ElevatedButton(
-                onPressed: _isLoading ? null : _addCargo,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              Container(
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _addCargo,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 4,
                   ),
+                  child: _isLoading
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            Text('Kaydediliyor...',
+                                style: TextStyle(fontSize: 16)),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_circle_outline, size: 24),
+                            SizedBox(width: 8),
+                            Text(
+                              'Kargo Ekle',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
-                child: _isLoading
-                    ? Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(color: Colors.white),
-                          SizedBox(width: 12),
-                          Text('Kaydediliyor...'),
-                        ],
-                      )
-                    : Text(
-                        'Kargo Ekle',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
               ),
             ],
           ),
@@ -634,6 +840,8 @@ Future<void> _getCurrentLocation(bool isPickup) async {
     _phoneController.dispose();
     _weightController.dispose();
     _heightController.dispose();
+    _selfAddressController.dispose();
+    _targetAddressController.dispose();
     super.dispose();
   }
 }

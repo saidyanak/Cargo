@@ -1,5 +1,7 @@
 package com.hilgo.cargo.response;
 
+import java.time.LocalDateTime;
+
 import com.hilgo.cargo.entity.enums.CargoSituation;
 
 import lombok.AllArgsConstructor;
@@ -14,6 +16,8 @@ import lombok.NoArgsConstructor;
 public class CargoesResponse {
 
 	private Long id;
+
+	private String description;
 	
 	private ResponseLocation selfLocation;
 	
@@ -26,4 +30,10 @@ public class CargoesResponse {
 	private String phoneNumber;
 
 	private String distPhoneNumber;
+
+	private LocalDateTime createdAt; 
+    
+	private LocalDateTime updatedAt; 
+    
+	private String verificationCode;
 }

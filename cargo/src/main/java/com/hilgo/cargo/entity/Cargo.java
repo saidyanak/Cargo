@@ -2,6 +2,9 @@ package com.hilgo.cargo.entity;
 
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
 import com.hilgo.cargo.entity.enums.CargoSituation;
 
 import jakarta.persistence.CascadeType;
@@ -65,6 +68,14 @@ public class Cargo {
 	
 	@ManyToOne
 	private Driver driver;
+
+	@CreationTimestamp
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+    
+    @UpdateTimestamp
+    @Column(name = "updated_at") 
+    private LocalDateTime updatedAt;
 	//@Lob
 //    private byte[] qrCodeImage;
 
