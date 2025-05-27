@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/auth_service.dart';
@@ -305,6 +306,29 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
+              SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _isLoading ? null : _signInWithGoogle,
+                icon: Image.asset(
+                  'assets/images/google_logo.png',
+                  height: 24,
+                  width: 24,
+                ),
+                label: Text(
+                  'Google ile Giriş Yap',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  minimumSize: Size(double.infinity, 50),
+                  elevation: 2,
+                ),
+              ),
               SizedBox(height: 30),
               
               // Test kullanıcıları (geliştirme için)
@@ -432,4 +456,34 @@ class _LoginScreenState extends State<LoginScreen> {
     _passwordController.dispose();
     super.dispose();
   }
+  Future<void> _signInWithGoogle() async {
+  setState(() => _isLoading = true);
+
+  try {
+    final userCredential = await AuthService.signInWithGoogle();
+
+    if (userCredential != null) {
+      final user = userCredential.user!;
+      print('Google ile giriş başarılı: ${user.email}');
+
+      // Burada kendi sisteminde user kontrolü veya yönlendirme yapabilirsin
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Hoş geldin, ${user.displayName}')),
+      );
+
+      Navigator.pushReplacementNamed(context, '/driver_home'); // örnek yönlendirme
+    } else {
+      _showErrorDialog('Google ile giriş başarısız.');
+    }
+  } catch (e) {
+    print('Google ile giriş hatası: $e');
+    _showErrorDialog('Google ile giriş yapılırken bir hata oluştu.');
+  } finally {
+    setState(() => _isLoading = false);
+  }
+}
+}
+
+extension on User {
+  get user => null;
 }

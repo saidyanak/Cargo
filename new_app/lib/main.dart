@@ -41,6 +41,8 @@ class AppStateProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   Map<String, dynamic>? get currentUser => _currentUser;
 
+
+
   void setLoading(bool loading) {
     _isLoading = loading;
     notifyListeners();
@@ -102,10 +104,11 @@ class UserProvider extends ChangeNotifier {
   bool get isDriver => _role == 'DRIVER';
   bool get isDistributor => _role == 'DISTRIBUTOR';
 }
-
+// flutter run -d web-server --web-hostname=0.0.0.0 --web-port=3000
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+
   // Firebase başlatma
   try {
     await Firebase.initializeApp(
