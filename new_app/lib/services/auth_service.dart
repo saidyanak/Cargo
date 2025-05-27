@@ -2,10 +2,17 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
 
 class AuthService {
   static const String baseUrl = 'https://67n86mnm-8080.euw.devtunnels.ms';
   static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  static final GoogleSignIn _googleSignIn = GoogleSignIn();
+  static final FirebaseAuth _auth = FirebaseAuth.instance;
+
+
 
   // Login işlemi - Backend'den LoginResponse alır
   static Future<Map<String, dynamic>?> login(String username, String password) async {
@@ -62,6 +69,30 @@ class AuthService {
       return null;
     }
   }
+
+   static Future<User?> signInWithGoogle() async {
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return null;
+
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential userCredential =
+          await _auth.signInWithCredential(credential);
+
+      return userCredential.user;
+    } catch (e) {
+      print("Google Sign-In error: $e");
+      return null;
+    }
+  }
+
 
   // Kullanıcı bilgilerini backend'den al
   static Future<Map<String, dynamic>?> getUserInfo() async {
@@ -223,6 +254,8 @@ class AuthService {
     }
   }
 
+  
+
   // Çıkış işlemi
   static Future<void> logout() async {
     try {
@@ -245,4 +278,6 @@ class AuthService {
       await _secureStorage.deleteAll();
     }
   }
+
+  
 }
