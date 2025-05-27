@@ -8,7 +8,7 @@ import 'package:path/path.dart' as path;
 import 'package:flutter/material.dart';
 
 class ImageService {
-  static const String _baseUrl = 'http://localhost:8080';
+  static const String _baseUrl = 'https://67n86mnm-8080.euw.devtunnels.ms';
   static final _picker = ImagePicker();
   static final _secureStorage = FlutterSecureStorage();
 

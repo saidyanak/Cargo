@@ -13,7 +13,7 @@ class CargoService {
   // Gerçek cihaz için (IP'nizi yazın):
   // static const String _baseUrl = 'http://192.168.1.XXX:8080';
   // Web için:
-  static const String _baseUrl = 'http://localhost:8080';
+  static const String _baseUrl = 'https://67n86mnm-8080.euw.devtunnels.ms';
   
   static final _secureStorage = FlutterSecureStorage();
 
