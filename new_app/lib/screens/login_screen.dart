@@ -27,58 +27,62 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final token = await AuthService.login(
+      // Güncellenmiş AuthService.login metodunu kullan
+      final loginResult = await AuthService.login(
         _usernameController.text.trim(),
         _passwordController.text,
       );
 
-      if (token != null) {
-        print('Login başarılı, token alındı: $token');
+      if (loginResult != null && loginResult['success'] == true) {
+        print('Login başarılı');
         
-        // Kullanıcı bilgilerini backend'den al
-        final userInfo = await AuthService.getUserInfo();
-        print('Kullanıcı bilgileri: $userInfo');
+        final String userRole = loginResult['role'];
+        final Map<String, dynamic> userResponse = loginResult['userResponse'];
         
-        String? userRole;
+        print('Kullanıcı rolü: $userRole');
+        print('Kullanıcı bilgileri: $userResponse');
         
-        if (userInfo != null && userInfo['role'] != null) {
-          // Backend'den role bilgisi geldi
-          userRole = userInfo['role'].toString().toUpperCase();
-          print('Backend\'den gelen role: $userRole');
+        // Success message göster
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Giriş başarılı! Hoş geldiniz ${userResponse['username']}'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // Kısa bir gecikme ile ekran geçişi yap
+        await Future.delayed(Duration(milliseconds: 500));
+        
+        // Kullanıcıyı rolüne göre yönlendir
+        if (userRole.toUpperCase() == 'DRIVER') {
+          print('Driver olarak yönlendiriliyor...');
+          Navigator.pushReplacementNamed(context, '/driver_home');
+        } else if (userRole.toUpperCase() == 'DISTRIBUTOR') {
+          print('Distributor olarak yönlendiriliyor...');
+          Navigator.pushReplacementNamed(context, '/distributor_home');
         } else {
-          // Fallback: Token'dan kullanıcı adına göre tahmin et (geçici çözüm)
-          final name = await AuthService.getNameFromToken(token);
-          print('Token\'dan gelen name: $name');
-          
-          // Burada username'e göre role tahmin edebilirsiniz (geçici)
-          // Veya kullanıcıdan role seçmesini isteyebilirsiniz
-          userRole = await _showRoleSelectionDialog();
-        }
-        
-        if (userRole != null) {
-          // Role'u kaydet
-          await _secureStorage.write(key: 'user_role', value: userRole);
-          print('Role kaydedildi: $userRole');
-          
-          // Kullanıcıyı rolüne göre yönlendir
-          if (userRole == 'DRIVER') {
-            print('Driver olarak yönlendiriliyor...');
-            Navigator.pushReplacementNamed(context, '/driver_home');
-          } else if (userRole == 'DISTRIBUTOR') {
-            print('Distributor olarak yönlendiriliyor...');
-            Navigator.pushReplacementNamed(context, '/distributor_home');
-          } else {
-            _showErrorDialog('Geçersiz kullanıcı rolü: $userRole');
-          }
-        } else {
-          _showErrorDialog('Kullanıcı rolü belirlenemedi');
+          _showErrorDialog('Bilinmeyen kullanıcı rolü: $userRole');
         }
       } else {
         _showErrorDialog('Giriş başarısız. Kullanıcı adı veya şifre hatalı.');
       }
     } catch (e) {
       print('Login hatası: $e');
-      _showErrorDialog('Bir hata oluştu: $e');
+      String errorMessage = 'Bir hata oluştu';
+      
+      // Hata tipine göre mesaj özelleştir
+      if (e.toString().contains('Connection')) {
+        errorMessage = 'Bağlantı hatası. İnternet bağlantınızı kontrol edin.';
+      } else if (e.toString().contains('timeout')) {
+        errorMessage = 'İstek zaman aşımına uğradı. Lütfen tekrar deneyin.';
+      } else if (e.toString().contains('401')) {
+        errorMessage = 'Kullanıcı adı veya şifre hatalı.';
+      } else if (e.toString().contains('500')) {
+        errorMessage = 'Sunucu hatası. Lütfen daha sonra tekrar deneyin.';
+      }
+      
+      _showErrorDialog(errorMessage);
     } finally {
       setState(() {
         _isLoading = false;
@@ -86,35 +90,27 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // Role seçim dialog'u (backend'den role gelmezse)
-  Future<String?> _showRoleSelectionDialog() async {
-    return await showDialog<String>(
+  void _showErrorDialog(String message) {
+    showDialog(
       context: context,
-      barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: Text('Hesap Türünüz'),
-        content: Text('Hangi tür kullanıcısınız?'),
+        title: Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Hata'),
+          ],
+        ),
+        content: Text(message),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, 'DRIVER'),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.drive_eta, color: Colors.green),
-                SizedBox(width: 8),
-                Text('Sürücü'),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, 'DISTRIBUTOR'),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.business, color: Colors.blue),
-                SizedBox(width: 8),
-                Text('Kargo Veren'),
-              ],
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Tamam',
+              style: TextStyle(color: Colors.blue),
             ),
           ),
         ],
@@ -122,20 +118,16 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Hata'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Tamam'),
-          ),
-        ],
-      ),
-    );
+  // Test kullanıcısı ile hızlı giriş
+  Future<void> _quickLogin(String username, String password, String userType) async {
+    _usernameController.text = username;
+    _passwordController.text = password;
+    
+    // Animasyon efekti için kısa gecikme
+    await Future.delayed(Duration(milliseconds: 300));
+    
+    // Login işlemini başlat
+    _login();
   }
 
   @override
@@ -152,16 +144,26 @@ class _LoginScreenState extends State<LoginScreen> {
               // Logo ve başlık
               Column(
                 children: [
-                  Container(
-                    padding: EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.blue,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.local_shipping,
-                      size: 60,
-                      color: Colors.white,
+                  Hero(
+                    tag: 'app_logo',
+                    child: Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withOpacity(0.3),
+                            blurRadius: 20,
+                            offset: Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.local_shipping,
+                        size: 60,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                   SizedBox(height: 20),
@@ -198,6 +200,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       // Kullanıcı adı
                       TextField(
                         controller: _usernameController,
+                        enabled: !_isLoading,
                         decoration: InputDecoration(
                           labelText: 'Kullanıcı Adı',
                           prefixIcon: Icon(Icons.person),
@@ -208,6 +211,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(color: Colors.blue, width: 2),
                           ),
+                          filled: _isLoading,
+                          fillColor: _isLoading ? Colors.grey[100] : null,
                         ),
                       ),
                       SizedBox(height: 20),
@@ -216,12 +221,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
+                        enabled: !_isLoading,
                         decoration: InputDecoration(
                           labelText: 'Şifre',
                           prefixIcon: Icon(Icons.lock),
                           suffixIcon: IconButton(
                             icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                            onPressed: () {
+                            onPressed: _isLoading ? null : () {
                               setState(() {
                                 _obscurePassword = !_obscurePassword;
                               });
@@ -234,7 +240,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide(color: Colors.blue, width: 2),
                           ),
+                          filled: _isLoading,
+                          fillColor: _isLoading ? Colors.grey[100] : null,
                         ),
+                        onSubmitted: _isLoading ? null : (_) => _login(),
                       ),
                       SizedBox(height: 16),
                       
@@ -242,7 +251,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () {
+                          onPressed: _isLoading ? null : () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -266,9 +275,27 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           minimumSize: Size(double.infinity, 50),
+                          elevation: _isLoading ? 0 : 4,
                         ),
                         child: _isLoading
-                            ? CircularProgressIndicator(color: Colors.white)
+                            ? Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text(
+                                    'Giriş yapılıyor...',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                ],
+                              )
                             : Text(
                                 'Giriş Yap',
                                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -281,49 +308,74 @@ class _LoginScreenState extends State<LoginScreen> {
               SizedBox(height: 30),
               
               // Test kullanıcıları (geliştirme için)
-              if (true) // DEBUG MODE
-                Column(
-                  children: [
-                    Text(
-                      'Test Kullanıcıları:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Row(
+              if (true) // DEBUG MODE - Production'da false yapın
+                Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Column(
                       children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              _usernameController.text = 'driver1';
-                              _passwordController.text = '123456';
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              foregroundColor: Colors.white,
+                        Row(
+                          children: [
+                            Icon(Icons.bug_report, color: Colors.orange),
+                            SizedBox(width: 8),
+                            Text(
+                              'Test Kullanıcıları (Geliştirme)',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange[800],
+                              ),
                             ),
-                            child: Text('Test Driver'),
-                          ),
+                          ],
                         ),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              _usernameController.text = 'distributor1';
-                              _passwordController.text = '123456';
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.orange,
-                              foregroundColor: Colors.white,
+                        SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _isLoading ? null : () => _quickLogin('driver1', '123456', 'Driver'),
+                                icon: Icon(Icons.drive_eta, size: 20),
+                                label: Text('Test Driver'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
                             ),
-                            child: Text('Test Distributor'),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _isLoading ? null : () => _quickLogin('distributor1', '123456', 'Distributor'),
+                                icon: Icon(Icons.business, size: 20),
+                                label: Text('Test Distributor'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Hızlı test için tıklayın',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
                           ),
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               
               SizedBox(height: 20),
@@ -337,7 +389,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                   TextButton(
-                    onPressed: () {
+                    onPressed: _isLoading ? null : () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -349,11 +401,23 @@ class _LoginScreenState extends State<LoginScreen> {
                       'Kayıt Ol',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.blue,
+                        color: _isLoading ? Colors.grey : Colors.blue,
                       ),
                     ),
                   ),
                 ],
+              ),
+              SizedBox(height: 20),
+              
+              // App version info (opsiyonel)
+              Center(
+                child: Text(
+                  'Cargo App v1.0.0',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                  ),
+                ),
               ),
             ],
           ),

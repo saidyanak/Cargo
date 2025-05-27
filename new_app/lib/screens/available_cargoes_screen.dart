@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../services/cargo_service.dart';
 import 'cargo_detail_screen.dart';
+import '../utils/cargo_helper.dart';
+import '../services/cargo_service.dart';
 
 class AvailableCargoesScreen extends StatefulWidget {
   @override

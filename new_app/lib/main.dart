@@ -31,10 +31,77 @@ import 'screens/photo_gallery_screen.dart';
 
 import 'firebase_options.dart';
 
+// State Management Providers
+class AppStateProvider extends ChangeNotifier {
+  bool _isLoading = false;
+  String? _errorMessage;
+  Map<String, dynamic>? _currentUser;
 
-// State Management
-import 'providers/app_state_provider.dart';
-import 'providers/user_provider.dart';
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
+  Map<String, dynamic>? get currentUser => _currentUser;
+
+  void setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
+  }
+
+  void setError(String? error) {
+    _errorMessage = error;
+    notifyListeners();
+  }
+
+  void setCurrentUser(Map<String, dynamic>? user) {
+    _currentUser = user;
+    notifyListeners();
+  }
+
+  void clearError() {
+    _errorMessage = null;
+    notifyListeners();
+  }
+}
+
+class UserProvider extends ChangeNotifier {
+  String? _userId;
+  String? _username;
+  String? _email;
+  String? _role;
+  String? _profilePhotoUrl;
+
+  String? get userId => _userId;
+  String? get username => _username;
+  String? get email => _email;
+  String? get role => _role;
+  String? get profilePhotoUrl => _profilePhotoUrl;
+
+  void setUser({
+    String? userId,
+    String? username,
+    String? email,
+    String? role,
+    String? profilePhotoUrl,
+  }) {
+    _userId = userId;
+    _username = username;
+    _email = email;
+    _role = role;
+    _profilePhotoUrl = profilePhotoUrl;
+    notifyListeners();
+  }
+
+  void clearUser() {
+    _userId = null;
+    _username = null;
+    _email = null;
+    _role = null;
+    _profilePhotoUrl = null;
+    notifyListeners();
+  }
+
+  bool get isDriver => _role == 'DRIVER';
+  bool get isDistributor => _role == 'DISTRIBUTOR';
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,49 +111,61 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    print('Firebase başlatıldı');
+    if (kDebugMode) {
+      print('Firebase başlatıldı');
+    }
   } catch (e) {
-    print('Firebase başlatma hatası: $e');
+    if (kDebugMode) {
+      print('Firebase başlatma hatası: $e');
+    }
   }
   
   // Bildirim servisi başlatma
   try {
     await NotificationService.initialize();
-    print('Bildirim servisi başlatıldı');
+    if (kDebugMode) {
+      print('Bildirim servisi başlatıldı');
+    }
   } catch (e) {
-    print('Bildirim servisi hatası: $e');
+    if (kDebugMode) {
+      print('Bildirim servisi hatası: $e');
+    }
   }
   
   // İzinleri kontrol et
   await _requestPermissions();
-  
+
   runApp(CargoApp());
 }
 
 Future<void> _requestPermissions() async {
-  final locationStatus = await Permission.location.request();
-  if (!locationStatus.isGranted) {
-    print('Konum izni reddedildi!');
-  }
-
-  final cameraStatus = await Permission.camera.request();
-  if (!cameraStatus.isGranted) {
-    print('Kamera izni reddedildi!');
-  }
-
-  if (!kIsWeb) {
-    // Web platformunda storage izni desteklenmiyor, sadece mobilde iste
-    final storageStatus = await Permission.storage.request();
-    if (!storageStatus.isGranted) {
-      print('Depolama izni reddedildi!');
+  try {
+    final locationStatus = await Permission.location.request();
+    if (!locationStatus.isGranted && kDebugMode) {
+      print('Konum izni reddedildi!');
     }
-  } else {
-    print('Storage permission is not required on web');
-  }
 
-  final notificationStatus = await Permission.notification.request();
-  if (!notificationStatus.isGranted) {
-    print('Bildirim izni reddedildi!');
+    final cameraStatus = await Permission.camera.request();
+    if (!cameraStatus.isGranted && kDebugMode) {
+      print('Kamera izni reddedildi!');
+    }
+
+    if (!kIsWeb) {
+      // Web platformunda storage izni desteklenmiyor, sadece mobilde iste
+      final storageStatus = await Permission.storage.request();
+      if (!storageStatus.isGranted && kDebugMode) {
+        print('Depolama izni reddedildi!');
+      }
+    }
+
+    final notificationStatus = await Permission.notification.request();
+    if (!notificationStatus.isGranted && kDebugMode) {
+      print('Bildirim izni reddedildi!');
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('İzin isteme hatası: $e');
+    }
   }
 }
 
@@ -147,112 +226,277 @@ class CargoApp extends StatelessWidget {
           '/distributor_home': (context) => DistributorHomeScreen(),
           '/driver_home': (context) => DriverHomeScreen(),
           '/profile': (context) => ProfileScreen(),
+          // ROUTE'LARI DÜZELTTİM - STATIC ROUTE OLARAK EKLEDİM
+          '/add_cargo': (context) => AddCargoScreen(),
+          '/cargo_list': (context) => CargoListScreen(),
+          '/available_cargoes': (context) => AvailableCargoesScreen(),
+          '/my_cargoes': (context) => MyCargoesScreen(),
+          '/forgot_password': (context) => ForgotPasswordScreen(),
         },
         onGenerateRoute: (settings) {
-          // Dinamik routing için
-          switch (settings.name) {
-            case '/verification':
-              final args = settings.arguments as Map<String, dynamic>;
-              return MaterialPageRoute(
-                builder: (context) => VerificationScreen(
-                  email: args['email'],
-                ),
-              );
-            case '/forgot_password':
-              return MaterialPageRoute(
-                builder: (context) => ForgotPasswordScreen(),
-              );
-            case '/add_cargo':
-              return MaterialPageRoute(
-                builder: (context) => AddCargoScreen(),
-              );
-            case '/edit_cargo':
-              final args = settings.arguments as Map<String, dynamic>;
-              return MaterialPageRoute(
-                builder: (context) => EditCargoScreen(
-                  cargo: args['cargo'],
-                ),
-              );
-            case '/cargo_list':
-              return MaterialPageRoute(
-                builder: (context) => CargoListScreen(),
-              );
-            case '/available_cargoes':
-              return MaterialPageRoute(
-                builder: (context) => AvailableCargoesScreen(),
-              );
-            case '/my_cargoes':
-              return MaterialPageRoute(
-                builder: (context) => MyCargoesScreen(),
-              );
-            case '/cargo_detail':
-              final args = settings.arguments as Map<String, dynamic>;
-              return MaterialPageRoute(
-                builder: (context) => CargoDetailScreen(
-                  cargo: args['cargo'],
-                  isDriver: args['isDriver'] ?? false,
-                ),
-              );
-            case '/delivery':
-              final args = settings.arguments as Map<String, dynamic>;
-              return MaterialPageRoute(
-                builder: (context) => DeliveryScreen(
-                  cargo: args['cargo'],
-                ),
-              );
-            case '/map_selection':
-              final args = settings.arguments as Map<String, dynamic>?;
-              return MaterialPageRoute(
-                builder: (context) => MapSelectionScreen(
-                  initialLocation: args?['initialLocation'],
-                  title: args?['title'] ?? 'Konum Seç',
-                ),
-              );
-            case '/rating':
-              final args = settings.arguments as Map<String, dynamic>;
-              return MaterialPageRoute(
-                builder: (context) => RatingScreen(
-                  cargo: args['cargo'],
-                  ratingType: args['ratingType'],
-                  targetUserId: args['targetUserId'],
-                  targetUserName: args['targetUserName'],
-                ),
-              );
-            case '/photo_gallery':
-              final args = settings.arguments as Map<String, dynamic>;
-              return MaterialPageRoute(
-                builder: (context) => PhotoGalleryScreen(
-                  cargoId: args['cargoId'],
-                  canAddPhotos: args['canAddPhotos'] ?? false,
-                  initialPhotos: args['initialPhotos'] ?? [],
-                ),
-              );
-            default:
-              return MaterialPageRoute(
-                builder: (context) => Scaffold(
-                  appBar: AppBar(title: Text('Sayfa Bulunamadı')),
-                  body: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.error_outline, size: 80, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text(
-                          'Sayfa bulunamadı',
-                          style: TextStyle(fontSize: 18),
-                        ),
-                        SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
-                          child: Text('Ana Sayfaya Dön'),
-                        ),
-                      ],
-                    ),
+          if (kDebugMode) {
+            print('=== ROUTE DEBUG ===');
+            print('Route name: ${settings.name}');
+            print('Arguments: ${settings.arguments}');
+            print('==================');
+          }
+          
+          try {
+            switch (settings.name) {
+              case '/verification':
+                final args = settings.arguments as Map<String, dynamic>?;
+                return MaterialPageRoute(
+                  builder: (context) => VerificationScreen(
+                    email: args?['email'] ?? '',
                   ),
-                ),
-              );
+                );
+              case '/edit_cargo':
+                final args = settings.arguments as Map<String, dynamic>?;
+                if (args == null || args['cargo'] == null) {
+                  if (kDebugMode) {
+                    print('HATA: edit_cargo için cargo parametresi eksik!');
+                  }
+                  return MaterialPageRoute(
+                    builder: (context) => _buildErrorPage(
+                      context, 
+                      'Kargo bilgisi bulunamadı',
+                      'Kargo düzenleme sayfasına erişmek için geçerli bir kargo seçin.'
+                    ),
+                  );
+                }
+                return MaterialPageRoute(
+                  builder: (context) => EditCargoScreen(
+                    cargo: args['cargo'],
+                  ),
+                );
+              case '/cargo_detail':
+                final args = settings.arguments as Map<String, dynamic>?;
+                if (args == null || args['cargo'] == null) {
+                  if (kDebugMode) {
+                    print('HATA: cargo_detail için cargo parametresi eksik!');
+                  }
+                  return MaterialPageRoute(
+                    builder: (context) => _buildErrorPage(
+                      context, 
+                      'Kargo bilgisi bulunamadı',
+                      'Kargo detay sayfasına erişmek için geçerli bir kargo seçin.'
+                    ),
+                  );
+                }
+                return MaterialPageRoute(
+                  builder: (context) => CargoDetailScreen(
+                    cargo: args['cargo'],
+                    isDriver: args?['isDriver'] ?? false,
+                  ),
+                );
+              case '/delivery':
+                final args = settings.arguments as Map<String, dynamic>?;
+                if (args == null || args['cargo'] == null) {
+                  if (kDebugMode) {
+                    print('HATA: delivery için cargo parametresi eksik!');
+                  }
+                  return MaterialPageRoute(
+                    builder: (context) => _buildErrorPage(
+                      context, 
+                      'Kargo bilgisi bulunamadı',
+                      'Teslimat sayfasına erişmek için geçerli bir kargo seçin.'
+                    ),
+                  );
+                }
+                return MaterialPageRoute(
+                  builder: (context) => DeliveryScreen(
+                    cargo: args['cargo'],
+                  ),
+                );
+              case '/map_selection':
+                final args = settings.arguments as Map<String, dynamic>?;
+                return MaterialPageRoute(
+                  builder: (context) => MapSelectionScreen(
+                    initialLocation: args?['initialLocation'],
+                    title: args?['title'] ?? 'Konum Seç',
+                  ),
+                );
+              case '/rating':
+                final args = settings.arguments as Map<String, dynamic>?;
+                return MaterialPageRoute(
+                  builder: (context) => RatingScreen(
+                    cargo: args?['cargo'] ?? {},
+                    ratingType: args?['ratingType'] ?? 'driver',
+                    targetUserId: args?['targetUserId'] ?? 0,
+                    targetUserName: args?['targetUserName'] ?? '',
+                  ),
+                );
+              case '/photo_gallery':
+                final args = settings.arguments as Map<String, dynamic>?;
+                return MaterialPageRoute(
+                  builder: (context) => PhotoGalleryScreen(
+                    cargoId: args?['cargoId'] ?? 0,
+                    canAddPhotos: args?['canAddPhotos'] ?? false,
+                    initialPhotos: List<String>.from(args?['initialPhotos'] ?? []),
+                  ),
+                );
+              default:
+                if (kDebugMode) {
+                  print('Bilinmeyen route: ${settings.name}');
+                }
+                return MaterialPageRoute(
+                  builder: (context) => _buildNotFoundPage(context, settings.name),
+                );
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('Route oluşturma hatası: $e');
+              print('Settings: ${settings.name}');
+              print('Arguments: ${settings.arguments}');
+            }
+            return MaterialPageRoute(
+              builder: (context) => _buildErrorPage(
+                context,
+                'Sayfa Yükleme Hatası',
+                'Sayfa yüklenirken bir hata oluştu: $e'
+              ),
+            );
           }
         },
+      ),
+    );
+  }
+
+  Widget _buildNotFoundPage(BuildContext context, String? routeName) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Sayfa Bulunamadı'),
+        backgroundColor: Colors.red,
+        foregroundColor: Colors.white,
+      ),
+      body: Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 80, color: Colors.red),
+              SizedBox(height: 16),
+              Text(
+                'Sayfa Bulunamadı',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+              SizedBox(height: 8),
+              if (routeName != null) ...[
+                Text(
+                  'Aranan sayfa: $routeName',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                SizedBox(height: 16),
+              ],
+              Text(
+                'Bu sayfa mevcut değil veya kaldırılmış olabilir.',
+                style: TextStyle(fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(Icons.arrow_back),
+                    label: Text('Geri'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                      context, 
+                      '/login', 
+                      (route) => false
+                    ),
+                    icon: Icon(Icons.home),
+                    label: Text('Ana Sayfa'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorPage(BuildContext context, String title, String message) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Hata'),
+        backgroundColor: Colors.orange,
+        foregroundColor: Colors.white,
+      ),
+      body: Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.warning_amber_rounded, size: 80, color: Colors.orange),
+              SizedBox(height: 16),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.orange[800],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 12),
+              Text(
+                message,
+                style: TextStyle(fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(Icons.arrow_back),
+                    label: Text('Geri'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                      context, 
+                      '/login', 
+                      (route) => false
+                    ),
+                    icon: Icon(Icons.refresh),
+                    label: Text('Yenile'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -301,33 +545,57 @@ class _SplashScreenState extends State<SplashScreen>
       final token = await _secureStorage.read(key: 'auth_token');
       final role = await _secureStorage.read(key: 'user_role');
       
+      if (kDebugMode) {
+        print('=== AUTH CHECK ===');
+        print('Token exists: ${token != null}');
+        print('Role: $role');
+        print('==================');
+      }
+      
       if (token != null && role != null) {
         // Token geçerliliğini kontrol et
         final isValid = await _validateToken(token);
         
         if (isValid) {
-          // WebSocket bağlantısını başlat
-          await WebSocketService.connect();
+          // WebSocket bağlantısını başlat (hata durumunda devam et)
+          try {
+            await WebSocketService.connect();
+          } catch (e) {
+            if (kDebugMode) {
+              print('WebSocket bağlantı hatası: $e');
+            }
+            // WebSocket bağlantı hatası uygulamayı durdurmasın
+          }
           
           // Kullanıcıyı rolüne göre yönlendir
-          if (role == 'DISTRIBUTOR') {
-            Navigator.pushReplacementNamed(context, '/distributor_home');
-          } else if (role == 'DRIVER') {
-            Navigator.pushReplacementNamed(context, '/driver_home');
-          } else {
-            Navigator.pushReplacementNamed(context, '/login');
+          if (mounted) {
+            if (role == 'DISTRIBUTOR') {
+              Navigator.pushReplacementNamed(context, '/distributor_home');
+            } else if (role == 'DRIVER') {
+              Navigator.pushReplacementNamed(context, '/driver_home');
+            } else {
+              Navigator.pushReplacementNamed(context, '/login');
+            }
           }
         } else {
           // Token geçersizse temizle ve login'e yönlendir
           await _secureStorage.deleteAll();
-          Navigator.pushReplacementNamed(context, '/login');
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/login');
+          }
         }
       } else {
-        Navigator.pushReplacementNamed(context, '/login');
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/login');
+        }
       }
     } catch (e) {
-      print('Auth kontrol hatası: $e');
-      Navigator.pushReplacementNamed(context, '/login');
+      if (kDebugMode) {
+        print('Auth kontrol hatası: $e');
+      }
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
     }
   }
 
@@ -337,6 +605,9 @@ class _SplashScreenState extends State<SplashScreen>
       final userInfo = await AuthService.getNameFromToken(token);
       return userInfo != null;
     } catch (e) {
+      if (kDebugMode) {
+        print('Token doğrulama hatası: $e');
+      }
       return false;
     }
   }
@@ -454,87 +725,4 @@ class _SplashScreenState extends State<SplashScreen>
     _animationController.dispose();
     super.dispose();
   }
-}
-
-// Global Error Handler
-class GlobalErrorHandler {
-  static void initialize() {
-    FlutterError.onError = (FlutterErrorDetails details) {
-      print('Flutter Error: ${details.exception}');
-      print('Stack Trace: ${details.stack}');
-    };
-  }
-}
-
-// App State Provider - Global durum yönetimi için
-class AppStateProvider extends ChangeNotifier {
-  bool _isLoading = false;
-  String? _errorMessage;
-  Map<String, dynamic>? _currentUser;
-
-  bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
-  Map<String, dynamic>? get currentUser => _currentUser;
-
-  void setLoading(bool loading) {
-    _isLoading = loading;
-    notifyListeners();
-  }
-
-  void setError(String? error) {
-    _errorMessage = error;
-    notifyListeners();
-  }
-
-  void setCurrentUser(Map<String, dynamic>? user) {
-    _currentUser = user;
-    notifyListeners();
-  }
-
-  void clearError() {
-    _errorMessage = null;
-    notifyListeners();
-  }
-}
-
-// User Provider - Kullanıcı bilgileri için
-class UserProvider extends ChangeNotifier {
-  String? _userId;
-  String? _username;
-  String? _email;
-  String? _role;
-  String? _profilePhotoUrl;
-
-  String? get userId => _userId;
-  String? get username => _username;
-  String? get email => _email;
-  String? get role => _role;
-  String? get profilePhotoUrl => _profilePhotoUrl;
-
-  void setUser({
-    String? userId,
-    String? username,
-    String? email,
-    String? role,
-    String? profilePhotoUrl,
-  }) {
-    _userId = userId;
-    _username = username;
-    _email = email;
-    _role = role;
-    _profilePhotoUrl = profilePhotoUrl;
-    notifyListeners();
-  }
-
-  void clearUser() {
-    _userId = null;
-    _username = null;
-    _email = null;
-    _role = null;
-    _profilePhotoUrl = null;
-    notifyListeners();
-  }
-
-  bool get isDriver => _role == 'DRIVER';
-  bool get isDistributor => _role == 'DISTRIBUTOR';
 }
